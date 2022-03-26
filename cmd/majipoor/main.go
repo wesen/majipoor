@@ -74,7 +74,7 @@ func viperBindNestedPFlags(namespace string, cmd *cobra.Command, flags []string)
 }
 
 func main() {
-	viper.SetConfigName("raza")
+	viper.SetConfigName("majipoor")
 	viper.AddConfigPath("$HOME/.config")
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
