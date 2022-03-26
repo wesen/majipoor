@@ -27,10 +27,8 @@ var rootCmd = cobra.Command{
 		file := viper.GetString("log.log-file")
 		if file == "" {
 			if isatty.IsTerminal(os.Stderr.Fd()) {
-				log.Debug().Msg("stderr is a terminal")
 				log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 			} else {
-				log.Debug().Msg("stderr is not a terminal")
 				log.Logger = log.Output(os.Stderr)
 			}
 		} else {
@@ -49,11 +47,6 @@ var rootCmd = cobra.Command{
 		if viper.GetBool("log.log-error-stacktrace") {
 			log.Debug().Msg("Logging error stacktraces")
 			zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-		}
-
-		for _, s := range []string{"host", "username", "password", "db"} {
-			log.Info().Str("mysql."+s, viper.GetString("mysql."+s)).Send()
-			log.Info().Str("postgresql."+s, viper.GetString("postgresql."+s)).Send()
 		}
 	},
 }
