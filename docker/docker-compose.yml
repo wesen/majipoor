@@ -11,6 +11,9 @@ services:
       MYSQL_DATABASE: wordpress
       MYSQL_USER: wordpress
       MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3336:3306"
   wordpress:
     depends_on:
       - db
