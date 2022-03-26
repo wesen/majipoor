@@ -1,0 +1,8 @@
+log:
+   debug: true
+mysql:
+   host: localhost
+   port: 3336
+   username: root
+   password: somewordpress
+   database: wordpress
