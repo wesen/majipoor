@@ -90,8 +90,9 @@ func main() {
 	rootCmd.PersistentFlags().String("mysql-password", "master", "Mysql password")
 	rootCmd.PersistentFlags().Int("mysql-port", 3306, "Mysql port")
 	rootCmd.PersistentFlags().String("mysql-db", "mysql", "Mysql database")
+	rootCmd.PersistentFlags().String("mysql-schema", "mysql", "Mysql source schema")
 	if err := viperBindNestedPFlags("mysql", &rootCmd,
-		[]string{"mysql-host", "mysql-username", "mysql-password", "mysql-port", "mysql-db"}); err != nil {
+		[]string{"mysql-host", "mysql-username", "mysql-password", "mysql-port", "mysql-db", "mysql-schema"}); err != nil {
 		log.Fatal().Err(err).Msg("Could not bind persistent flags")
 	}
 
@@ -100,8 +101,9 @@ func main() {
 	rootCmd.PersistentFlags().String("postgresql-password", "master", "PG password")
 	rootCmd.PersistentFlags().Int("postgresql-port", 5432, "PG port")
 	rootCmd.PersistentFlags().String("postgresql-db", "postgres", "PG database")
+	rootCmd.PersistentFlags().String("postgresql-schema", "majipoor", "PG destination schema")
 	if err := viperBindNestedPFlags("postgresql", &rootCmd,
-		[]string{"postgresql-host", "postgresql-username", "postgresql-password", "postgresql-port", "postgresql-db"}); err != nil {
+		[]string{"postgresql-host", "postgresql-username", "postgresql-password", "postgresql-port", "postgresql-db", "postgresql-schema"}); err != nil {
 		log.Fatal().Err(err).Msg("Could not bind persistent flags")
 	}
 

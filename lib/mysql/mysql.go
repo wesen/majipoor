@@ -3,9 +3,11 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
+	"github.com/huandu/go-sqlbuilder"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -90,4 +92,141 @@ func (md *MysqlDB) GetMysqlSlaveStatus() (*MysqlSlaveStatus, error) {
 		err = nil
 	}
 	return slaveStatus, err
+}
+
+func (md *MysqlDB) GetTables(schema string) ([]string, error) {
+	var tables []string
+	sb := sqlbuilder.Select("TABLE_NAME").From("information_schema.TABLES")
+	sb.Where(sb.Equal("TABLE_TYPE", "BASE TABLE"))
+	sb.Where(sb.Equal("TABLE_SCHEMA", schema))
+	sql_, args := sb.Build()
+
+	rows, err := md.db.Query(sql_, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	for rows.Next() {
+		var name string
+		err = rows.Scan(&name)
+		if err != nil {
+			return nil, err
+		}
+		tables = append(tables, name)
+	}
+
+	return tables, nil
+}
+
+type ColumnMetadata struct {
+	ColumnName             string  `db:"column_name"`
+	ColumnDefault          *string `db:"column_default"`
+	OrdinalPosition        int     `db:"ordinal_position"`
+	DataType               string  `db:"data_type"`
+	ColumnType             string  `db:"column_type"`
+	CharacterMaximumLength *int    `db:"character_maximum_length"`
+	Extra                  string  `db:"extra"`
+	ColumnKey              string  `db:"column_key"`
+	IsNullable             string  `db:"is_nullable"`
+	NumericPrecision       *int    `db:"numeric_precision"`
+	NumericScale           *int    `db:"numeric_scale"`
+	EnumList               *string `db:"enum_list"`
+}
+
+func (md *MysqlDB) GetTableMetadata(schema string, table string) ([]*ColumnMetadata, error) {
+	var metadatas []*ColumnMetadata
+	sb := sqlbuilder.Select("column_name", "column_default", "ordinal_position",
+		"data_type", "column_type", "character_maximum_length", "extra", "column_key",
+		"is_nullable", "numeric_precision", "numeric_scale",
+		`CASE
+	         WHEN data_type="enum"
+	     THEN
+	         SUBSTRING(COLUMN_TYPE,5)
+	     END AS enum_list`).
+		From("information_schema.COLUMNS")
+	sb.Where(sb.Equal("TABLE_SCHEMA", schema))
+	sb.Where(sb.Equal("TABLE_NAME", table))
+	sb.OrderBy("ordinal_position")
+
+	sql_, args := sb.Build()
+
+	rows, err := md.db.Queryx(sql_, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	for rows.Next() {
+		var tableMetadata ColumnMetadata
+		err = rows.StructScan(&tableMetadata)
+		if err != nil {
+			return nil, err
+		}
+		metadatas = append(metadatas, &tableMetadata)
+	}
+
+	return metadatas, nil
+}
+
+var spatialDatatypes = []string{
+	"point", "geometry", "linestring", "polygon", "multipoint", "multilinestring", "geometrycollection",
+}
+
+var hexTypes = []string{
+	"blob", "tinyblob", "mediumblob", "longblob", "binary", "varbinary",
+}
+
+// contains checks if needle is in haystack. This is horrible from a O() standpoint,
+// but we don't care
+func contains(needle string, haystack []string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
+var defaultCharacterSet = "utf8"
+
+func (c *ColumnMetadata) getSelectCSVStatement() string {
+	if contains(c.DataType, hexTypes) {
+		return fmt.Sprintf("hex(%s)", c.ColumnName)
+	}
+	if c.DataType == "bit" {
+		return fmt.Sprintf("cast(%s AS unsigned)", c.ColumnName)
+	}
+	if contains(c.DataType, []string{"datetime", "timestamp", "date"}) {
+		return fmt.Sprintf("nullif(%s, cast(\"0000-00-00 00:00:00\" AS date))", c.ColumnName)
+	}
+	if contains(c.DataType, spatialDatatypes) {
+		return fmt.Sprintf("ST_AsText(%s)", c.ColumnName)
+	}
+
+	return fmt.Sprintf("cast(%s AS char CHARACTER SET %s)", c.ColumnName, defaultCharacterSet)
+}
+
+func mapValues(m map[string]string) []string {
+	res := []string{}
+	for _, v := range m {
+		res = append(res, v)
+	}
+	return res
+}
+
+func GetSelectCSVSatement(table string, columns []*ColumnMetadata) string {
+	_ = table
+	selects := map[string]string{}
+	selectCsvs := map[string]string{}
+	for _, c := range columns {
+		statement := c.getSelectCSVStatement()
+		selects[c.ColumnName] = statement
+		selectCsvs[c.ColumnName] = fmt.Sprintf("COALESCE(REPLACE(%s, '\"', '\"\"'), 'NULL')", statement)
+		log.Debug().Str("column", c.ColumnName).Str("type", c.ColumnType).Str("select", selects[c.ColumnName]).Send()
+	}
+	return fmt.Sprintf("REPLACE(CONCAT('\"',CONCAT_WS('\",\"',%s),'\"'),'\"NULL\"','NULL')",
+		strings.Join(mapValues(selectCsvs), ",\n"))
 }

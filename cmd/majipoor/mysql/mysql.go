@@ -34,6 +34,38 @@ var schemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "parse and dump mysql schema",
 	Run: func(cmd *cobra.Command, args []string) {
+		connectionString := getMysqlConnectionString()
+		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
+		db, err := mysql.NewMysqlDB(connectionString)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not connect to database")
+		}
+
+		defer func() {
+			err := db.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("Could not close database connection")
+			}
+		}()
+
+		schema := viper.GetString("mysql.schema")
+		tables, err := db.GetTables(schema)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not get tables")
+		}
+		for _, table := range tables {
+			columns, err := db.GetTableMetadata(schema, table)
+			if err != nil {
+				log.Fatal().Err(err).Str("table", table).Msg("Could not get table metadata")
+			}
+			log.Info().Str("table", table).Msg("Found table")
+			for _, c := range columns {
+				log.Info().Str("table", table).Str("column", c.ColumnName).Msg("Found table")
+			}
+
+			stmt := mysql.GetSelectCSVSatement(table, columns)
+			fmt.Println(stmt)
+		}
 	},
 }
 

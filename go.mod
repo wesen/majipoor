@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/go-mysql-org/go-mysql v1.4.0
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/huandu/go-sqlbuilder v1.13.0
 	github.com/jmoiron/sqlx v1.3.3
 	github.com/mattn/go-isatty v0.0.14
 	github.com/pkg/errors v0.9.1
@@ -16,6 +17,7 @@ require (
 require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
