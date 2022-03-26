@@ -94,12 +94,26 @@ func (md *MysqlDB) GetMysqlSlaveStatus() (*MysqlSlaveStatus, error) {
 	return slaveStatus, err
 }
 
-func (md *MysqlDB) GetTables(schema string) ([]string, error) {
+func (md *MysqlDB) GetTables(schema string, limitTables []string, skipTables []string) ([]string, error) {
 	var tables []string
 	sb := sqlbuilder.Select("TABLE_NAME").From("information_schema.TABLES")
 	sb.Where(sb.Equal("TABLE_TYPE", "BASE TABLE"))
 	sb.Where(sb.Equal("TABLE_SCHEMA", schema))
 	sql_, args := sb.Build()
+
+	checkLimitTables := false
+	limitTableCheck := map[string]bool{}
+	skipTableCheck := map[string]bool{}
+
+	if len(limitTables) > 0 {
+		checkLimitTables = true
+		for _, v := range limitTables {
+			limitTableCheck[v] = true
+		}
+	}
+	for _, v := range skipTables {
+		skipTableCheck[v] = true
+	}
 
 	rows, err := md.db.Query(sql_, args...)
 	if err != nil {
@@ -113,6 +127,15 @@ func (md *MysqlDB) GetTables(schema string) ([]string, error) {
 		err = rows.Scan(&name)
 		if err != nil {
 			return nil, err
+		}
+		if _, ok := skipTableCheck[name]; ok {
+			continue
+		}
+
+		if checkLimitTables {
+			if _, ok := limitTableCheck[name]; !ok {
+				continue
+			}
 		}
 		tables = append(tables, name)
 	}

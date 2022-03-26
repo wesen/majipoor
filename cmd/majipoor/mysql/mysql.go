@@ -49,7 +49,8 @@ var schemaCmd = &cobra.Command{
 		}()
 
 		schema := viper.GetString("mysql.schema")
-		tables, err := db.GetTables(schema)
+		tables, err := db.GetTables(schema, viper.GetStringSlice("mysql.limit-tables"),
+			viper.GetStringSlice("mysql.skip-tables"))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Could not get tables")
 		}
@@ -60,7 +61,7 @@ var schemaCmd = &cobra.Command{
 			}
 			log.Info().Str("table", table).Msg("Found table")
 			for _, c := range columns {
-				log.Info().Str("table", table).Str("column", c.ColumnName).Msg("Found table")
+				log.Info().Str("table", table).Str("column", c.ColumnName).Msg("Found column")
 			}
 
 			stmt := mysql.GetSelectCSVSatement(table, columns)
