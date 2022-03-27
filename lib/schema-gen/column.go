@@ -203,7 +203,7 @@ func (c *textColumn) Instance() *Column {
 	useCharacterSet := rand.Intn(3) == 0
 	characterSet := randomString([]string{"utf8", "utf8mb4", "latin1", "ascii"})
 
-	defaultValue := fmt.Sprintf("'%s'", c.valueGen())
+	defaultValue := c.valueGen()
 
 	var col *Column
 
@@ -233,7 +233,7 @@ func (c *textColumn) Instance() *Column {
 	}
 
 	if hasDefaultValue {
-		col.DefaultValue = defaultValue
+		col.DefaultValue = fmt.Sprintf("'%s'", defaultValue)
 	}
 	if useCharacterSet {
 		col.DatabaseType += " character set " + characterSet

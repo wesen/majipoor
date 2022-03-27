@@ -51,6 +51,8 @@ var tableNames = []string{
 }
 
 // TODO(manuel) Create indexes
+// TODO(manuel) Add all possible table options to test binlog and other potential weirdness
+
 func GenerateTable() *Table {
 	hasId := rand.Intn(10) < 9
 	primaryKey := ""
