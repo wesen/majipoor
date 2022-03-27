@@ -4,7 +4,6 @@
 package mysql
 
 import (
-	"github.com/huandu/go-sqlbuilder"
 	"github.com/spf13/cobra"
 	"majipoor/lib/mysql"
 )
@@ -76,9 +75,9 @@ var checkConfigCmd = &cobra.Command{
 	Use:   "check-config",
 	Short: "parse and dump mysql config",
 	Run: func(cmd *cobra.Command, args []string) {
-		connectionString := getMysqlConnectionString(
-			viper.GetString("mysql.username"),
-			viper.GetString("mysql.password"))
+		rootUsername := viper.GetString("mysql.root-username")
+		rootPassword := viper.GetString("mysql.root-password")
+		connectionString := getMysqlConnectionString(rootUsername, rootPassword)
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -101,6 +100,15 @@ var checkConfigCmd = &cobra.Command{
 			log.Info().Msg("Replica possible")
 		} else {
 			log.Error().Msg("Replica not possible")
+			fmt.Println(`Please add the following entries to your my.cnf file (or binlog.cnf under /etc/mysql/mysql.conf.d/
+to enable binary logging:
+
+[mysqld]
+binlog_format= ROW
+binlog_row_image=FULL
+log-bin = mysql-bin
+server-id = 1
+expire_logs_days = 10`)
 		}
 	},
 }
@@ -112,8 +120,8 @@ var createReplicaUserCmd = &cobra.Command{
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		force, _ := cmd.Flags().GetBool("force")
 
-		rootUsername, _ := cmd.Flags().GetString("mysql-root-username")
-		rootPassword, _ := cmd.Flags().GetString("mysql-root-password")
+		rootUsername := viper.GetString("mysql.root-username")
+		rootPassword := viper.GetString("mysql.root-password")
 		connectionString := getMysqlConnectionString(rootUsername, rootPassword)
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
@@ -128,103 +136,15 @@ var createReplicaUserCmd = &cobra.Command{
 			}
 		}()
 
-		sb := sqlbuilder.Select("user").From("mysql.user")
-		replicaUsername := viper.GetString("mysql.username")
-		sb.Where(sb.Equal("user", replicaUsername))
-		sb2 := sqlbuilder.Buildf("SELECT EXISTS(%v)", sb)
-		sql_, args_ := sb2.Build()
-
-		if force {
-			sql_ = fmt.Sprintf("DROP USER IF EXISTS %s", replicaUsername)
-			if dryRun {
-				log.Info().Str("sql", sql_).Msg("Force deletion of user")
-			} else {
-				_, err = db.Exec(sql_)
-				if err != nil {
-					log.Fatal().Err(err).Msg("Could not delete user")
-				}
-				log.Info().Str("username", replicaUsername).Msg("Deleting user")
-			}
-		} else {
-			if dryRun {
-				log.Info().Str("sql", sql_).Interface("args", args_).Msg("Checking if user exists")
-			} else {
-				var exists bool
-				err = db.Db.QueryRow(sql_, args_...).Scan(&exists)
-				if err != nil {
-					log.Fatal().Err(err).Msg("Could not check if user exists")
-				}
-				if exists {
-					log.Fatal().Str("username", replicaUsername).Msg("User already exists")
-				}
-			}
-		}
-
-		sql_ = fmt.Sprintf("CREATE USER %s", replicaUsername)
-		if dryRun {
-			log.Info().Str("sql", sql_).Msg("Creating user")
-		} else {
-			_, err = db.Exec(sql_)
-			if err != nil {
-				log.Fatal().Err(err).Msg("Could not create user")
-			}
-			log.Info().Str("username", replicaUsername).Msg("Creating user")
-		}
-
-		sql_ = fmt.Sprintf("SET PASSWORD FOR %s=PASSWORD('%s')",
-			replicaUsername, viper.GetString("mysql.password"))
-		if dryRun {
-			log.Info().Str("sql", sql_).Msg("Setting password")
-		} else {
-			_, err = db.Exec(sql_)
-			if err != nil {
-				log.Fatal().Err(err).Msg("Could not set password")
-			}
-			log.Info().Str("username", replicaUsername).Msg("Setting password")
-		}
-
-		replicaSchema := viper.GetString("mysql.schema")
-		sql_ = fmt.Sprintf("GRANT ALL ON %s.* TO '%s'",
-			replicaSchema, replicaUsername)
-
-		if dryRun {
-			log.Info().Str("sql", sql_).Msg("Granting privileges")
-		} else {
-			_, err = db.Exec(sql_)
-
-			if err != nil {
-				log.Fatal().Err(err).Msg("Could not grant schema privileges")
-			}
-			log.Info().Str("username", replicaUsername).Str("schema", replicaSchema).Msg("Replica schema privileges granted")
-		}
-
-		for _, v := range []string{
-			"GRANT RELOAD ON *.* TO '%s'",
-			"GRANT REPLICATION CLIENT ON *.* TO '%s'",
-			"GRANT REPLICATION SLAVE ON *.* TO '%s'",
-		} {
-			sql_ = fmt.Sprintf(v, replicaUsername)
-			if dryRun {
-				log.Info().Str("sql", sql_).Msg("Granting replication privileges")
-			} else {
-				_, err = db.Exec(sql_)
-				if err != nil {
-					log.Fatal().Err(err).Msg("Could not grant replication privileges")
-				}
-				log.Info().Str("username", replicaUsername).Msg("Replication privileges granted")
-			}
-		}
-
-		sql_ = "FLUSH PRIVILEGES"
-		if dryRun {
-			log.Info().Str("sql", sql_).Msg("Flushing privileges")
-		} else {
-			_, err = db.Exec(sql_)
-
-			if err != nil {
-				log.Fatal().Err(err).Msg("Could not flush privileges")
-			}
-			log.Info().Str("username", replicaUsername).Msg("Privileges flushed")
+		err = db.CreateReplicaUser(mysql.CreateReplicaUserSettings{
+			Force:    force,
+			DryRun:   dryRun,
+			Schema:   viper.GetString("mysql.schema"),
+			Username: viper.GetString("mysql.username"),
+			Password: viper.GetString("mysql.password"),
+		})
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not create replica user")
 		}
 	},
 }
@@ -239,6 +159,23 @@ var createReplicaUserCmd = &cobra.Command{
 //log-bin = mysql-bin
 //server-id = 1
 //expire_logs_days = 10
+
+// TODO(manuel) Build a tool to generate full schemas and test data, so that we can test replication against a real setup
+// - this should generate schemas, fake data for the schemas, inserts, updates, deletes
+// - it should also generate DDL statements (alter, drop, etc...)
+//
+// This could output SQL files, not just execute it against a DB itself.
+// Now, if we want to generate further data in the future, for more interactive testing,
+// should we store the generated schema in a config file?
+// Should we be able to generate test data for an existing schema?
+
+// TODO(manuel) Run the schema dump against the ttc database and see which types we get
+
+// TODO(manuel) Gather which indexes to create when inspeecting the schema
+
+// TODO create a test framework using a docker test DB to test binlog streaming
+
+// TODO look at ast union type pattern to see if applicable for generating fake schemas
 
 func init() {
 	createReplicaUserCmd.Flags().Bool("dry-run", false, "Dry run")

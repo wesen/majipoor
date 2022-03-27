@@ -93,15 +93,14 @@ func main() {
 	rootCmd.PersistentFlags().String("mysql-schema", "mysql", "Mysql source schema")
 	rootCmd.PersistentFlags().StringArray("mysql-limit-tables", []string{}, "Restrict syncing to these tables (if not empty)")
 	rootCmd.PersistentFlags().StringArray("mysql-skip-tables", []string{}, "Skip these tables when syncing")
-	if err := viperBindNestedPFlags("mysql", &rootCmd,
-		[]string{"mysql-host", "mysql-username", "mysql-password", "mysql-port", "mysql-db", "mysql-schema",
-			"mysql-limit-tables", "mysql-skip-tables"}); err != nil {
-		log.Fatal().Err(err).Msg("Could not bind persistent flags")
-	}
-
-	// these are only used for configuration and for testing
 	rootCmd.PersistentFlags().String("mysql-root-username", "root", "Mysql root username")
 	rootCmd.PersistentFlags().String("mysql-root-password", "master", "Mysql root password")
+	if err := viperBindNestedPFlags("mysql", &rootCmd,
+		[]string{"mysql-host", "mysql-username", "mysql-password", "mysql-port", "mysql-db", "mysql-schema",
+			"mysql-limit-tables", "mysql-skip-tables",
+			"mysql-root-username", "mysql-root-password"}); err != nil {
+		log.Fatal().Err(err).Msg("Could not bind persistent flags")
+	}
 
 	rootCmd.PersistentFlags().String("postgresql-host", "localhost", "PG hostname")
 	rootCmd.PersistentFlags().String("postgresql-username", "postgres", "PG username")
