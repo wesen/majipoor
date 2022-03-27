@@ -21,16 +21,21 @@ type Table struct {
 
 func (t *Table) TableDefinition() string {
 	s := fmt.Sprintf("CREATE TABLE %s (\n", t.Name)
-	for i, c := range t.Columns {
-		s += fmt.Sprintf("\t%s", c.ColumnDefinition())
-		if i < len(t.Columns)-1 {
-			s += ","
+	var lines []string
+	for _, c := range t.Columns {
+		lines = append(lines, c.ColumnDefinition())
+	}
 
+	if t.PrimaryKey != "" {
+		lines = append(lines, fmt.Sprintf("PRIMARY KEY (%s)", t.PrimaryKey))
+	}
+
+	for i, c := range lines {
+		s += fmt.Sprintf("\t%s", c)
+		if i < len(lines)-1 {
+			s += ","
 		}
 		s += "\n"
-	}
-	if t.PrimaryKey != "" {
-		s += fmt.Sprintf("\tPRIMARY KEY (%s)\n", t.PrimaryKey)
 	}
 	s += ");"
 
@@ -41,9 +46,8 @@ var tableNames = []string{
 	"accounts",
 	"customers",
 	"items",
-	"values",
 	"orders", "stores", "order_items",
-	"widgets", "categories", "keys", "objects", "tags",
+	"widgets", "categories", "objects", "tags",
 	"roles", "permissions", "posts", "post_metadata",
 	"metadata", "entries", "logs", "log_entries",
 	"capabilities", "jobs", "queues", "job_logs",
@@ -79,7 +83,6 @@ func GenerateTable(name string) *Table {
 	for i := 0; i < nColumns; i++ {
 		column := protoColumns[rand.Intn(len(protoColumns))]
 		if usedColumns[column.GetName()] {
-			i--
 			continue
 		}
 		instance := column.Instance()

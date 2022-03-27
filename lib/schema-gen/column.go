@@ -112,7 +112,7 @@ func randInRange(min int, max int) int {
 }
 
 func (c *dateColumn) Instance() *Column {
-	defaultYear := fmt.Sprintf("%04d-%02d-%02d", randInRange(1900, 2100), randInRange(1, 12), randInRange(1, 28))
+	defaultYear := fmt.Sprintf("%04d-%02d-%02d", randInRange(1900, 2037), randInRange(1, 12), randInRange(1, 28))
 	defaultTime := fmt.Sprintf("%02d:%02d:%02d", randInRange(0, 23), randInRange(0, 59), randInRange(0, 59))
 	defaultFraction := fmt.Sprintf("%04d", randInRange(0, 9999))
 	isNullable := rand.Intn(2) == 0
@@ -207,7 +207,7 @@ func (c *textColumn) Instance() *Column {
 
 	var col *Column
 
-	switch rand.Intn(2) {
+	switch rand.Intn(3) {
 	case 0:
 		col = &Column{
 			Name:         c.name,
@@ -218,22 +218,37 @@ func (c *textColumn) Instance() *Column {
 		hasDefaultValue = false
 
 	case 1:
+		length := randInRange(20, 100)
+		col = &Column{
+			Name:     c.name,
+			Nullable: isNullable,
+			Length:   int64(length),
+			DatabaseType: fmt.Sprintf("%s(%d)",
+				randomString([]string{"char", "varchar"}), length),
+			ProtoColumn: c,
+		}
+		if len(defaultValue) > length {
+			defaultValue = defaultValue[:length]
+		}
+
+	case 2:
 		length := randInRange(5, 30)
 		col = &Column{
 			Name:     c.name,
 			Nullable: isNullable,
 			Length:   int64(length),
 			DatabaseType: fmt.Sprintf("%s(%d)",
-				randomString([]string{"char", "varchar", "binary", "varbinary"}), length),
+				randomString([]string{"binary", "varbinary"}), length),
 			ProtoColumn: c,
 		}
+		useCharacterSet = false
 		if len(defaultValue) > length {
 			defaultValue = defaultValue[:length]
 		}
 	}
 
 	if hasDefaultValue {
-		col.DefaultValue = fmt.Sprintf("'%s'", defaultValue)
+		col.DefaultValue = fmt.Sprintf("DEFAULT '%s'", defaultValue)
 	}
 	if useCharacterSet {
 		col.DatabaseType += " character set " + characterSet

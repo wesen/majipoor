@@ -5,6 +5,7 @@ package mysql
 
 import (
 	"github.com/spf13/cobra"
+	"majipoor/lib/helpers"
 	"majipoor/lib/mysql"
 )
 
@@ -21,22 +22,11 @@ var MysqlCmd = &cobra.Command{
 	Short: "mysql related commands",
 }
 
-func getMysqlConnectionString(username string, password string, database string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		username, password,
-		viper.GetString("mysql.host"),
-		viper.GetInt("mysql.port"),
-		database)
-}
-
 var schemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "parse and dump mysql schema",
 	Run: func(cmd *cobra.Command, args []string) {
-		connectionString := getMysqlConnectionString(
-			viper.GetString("mysql.username"),
-			viper.GetString("mysql.password"),
-			viper.GetString("mysql.database"))
+		connectionString := helpers.GetReplicaMysqlConnectionString()
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -76,9 +66,7 @@ var checkConfigCmd = &cobra.Command{
 	Use:   "check-config",
 	Short: "parse and dump mysql config",
 	Run: func(cmd *cobra.Command, args []string) {
-		rootUsername := viper.GetString("mysql.root-username")
-		rootPassword := viper.GetString("mysql.root-password")
-		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
+		connectionString := helpers.GetRootMysqlConnectionString()
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -121,9 +109,7 @@ var createReplicaUserCmd = &cobra.Command{
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		force, _ := cmd.Flags().GetBool("force")
 
-		rootUsername := viper.GetString("mysql.root-username")
-		rootPassword := viper.GetString("mysql.root-password")
-		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
+		connectionString := helpers.GetRootMysqlConnectionString()
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -157,9 +143,7 @@ var createReplicaDatabaseCmd = &cobra.Command{
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		force, _ := cmd.Flags().GetBool("force")
 
-		rootUsername := viper.GetString("mysql.root-username")
-		rootPassword := viper.GetString("mysql.root-password")
-		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
+		connectionString := helpers.GetRootMysqlConnectionString()
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {

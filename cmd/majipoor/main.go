@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"majipoor/cmd/majipoor/gen"
 	"majipoor/cmd/majipoor/mysql"
+	"majipoor/lib/helpers"
 	"os"
 	"strings"
 	"time"
@@ -119,6 +120,8 @@ func main() {
 
 	rootCmd.AddCommand(mysql.MysqlCmd)
 	rootCmd.AddCommand(gen.GenCmd)
+
+	helpers.StartSIGPROFStacktraceDumper("")
 
 	_ = rootCmd.Execute()
 }
