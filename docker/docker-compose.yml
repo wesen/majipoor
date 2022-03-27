@@ -5,6 +5,7 @@ services:
     platform: linux/x86_64
     volumes:
       - ./db_data:/var/lib/mysql
+      - ./db/conf/log.cnf:/etc/mysql/mysql.conf.d/log.cnf
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: somewordpress
