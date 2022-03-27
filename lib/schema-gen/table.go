@@ -53,7 +53,7 @@ var tableNames = []string{
 // TODO(manuel) Create indexes
 // TODO(manuel) Add all possible table options to test binlog and other potential weirdness
 
-func GenerateTable() *Table {
+func GenerateTable(name string) *Table {
 	hasId := rand.Intn(10) < 9
 	primaryKey := ""
 
@@ -89,8 +89,12 @@ func GenerateTable() *Table {
 		}
 	}
 
+	if name == "" {
+		name = randomString(tableNames)
+	}
+
 	return &Table{
-		Name:       randomString(tableNames),
+		Name:       name,
 		Columns:    columns,
 		PrimaryKey: primaryKey,
 	}

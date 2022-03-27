@@ -17,12 +17,20 @@ var genTableCmd = &cobra.Command{
 	Use:   "table",
 	Short: "Generate fake SQL data",
 	Run: func(cmd *cobra.Command, args []string) {
-		t := schema_gen.GenerateTable()
+		name, _ := cmd.Flags().GetString("name")
+		t := schema_gen.GenerateTable(name)
 		fmt.Printf(t.TableDefinition())
+
+		apply, _ := cmd.Flags().GetBool("apply")
+		if apply {
+
+		}
 	},
 }
 
 func init() {
 	rand.Seed(time.Now().Unix())
 	GenCmd.AddCommand(genTableCmd)
+	genTableCmd.Flags().Bool("apply", false, "Apply generated data to database")
+	genTableCmd.Flags().String("table", "", "Table name")
 }

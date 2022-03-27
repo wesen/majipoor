@@ -21,12 +21,12 @@ var MysqlCmd = &cobra.Command{
 	Short: "mysql related commands",
 }
 
-func getMysqlConnectionString(username string, password string) string {
+func getMysqlConnectionString(username string, password string, database string) string {
 	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 		username, password,
 		viper.GetString("mysql.host"),
 		viper.GetInt("mysql.port"),
-		viper.GetString("mysql.database"))
+		database)
 }
 
 var schemaCmd = &cobra.Command{
@@ -35,7 +35,8 @@ var schemaCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		connectionString := getMysqlConnectionString(
 			viper.GetString("mysql.username"),
-			viper.GetString("mysql.password"))
+			viper.GetString("mysql.password"),
+			viper.GetString("mysql.database"))
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -49,14 +50,14 @@ var schemaCmd = &cobra.Command{
 			}
 		}()
 
-		schema := viper.GetString("mysql.schema")
-		tables, err := db.GetTables(schema, viper.GetStringSlice("mysql.limit-tables"),
+		database := viper.GetString("mysql.database")
+		tables, err := db.GetTables(database, viper.GetStringSlice("mysql.limit-tables"),
 			viper.GetStringSlice("mysql.skip-tables"))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Could not get tables")
 		}
 		for _, table := range tables {
-			columns, err := db.GetTableMetadata(schema, table)
+			columns, err := db.GetTableMetadata(database, table)
 			if err != nil {
 				log.Fatal().Err(err).Str("table", table).Msg("Could not get table metadata")
 			}
@@ -77,7 +78,7 @@ var checkConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		rootUsername := viper.GetString("mysql.root-username")
 		rootPassword := viper.GetString("mysql.root-password")
-		connectionString := getMysqlConnectionString(rootUsername, rootPassword)
+		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -122,7 +123,7 @@ var createReplicaUserCmd = &cobra.Command{
 
 		rootUsername := viper.GetString("mysql.root-username")
 		rootPassword := viper.GetString("mysql.root-password")
-		connectionString := getMysqlConnectionString(rootUsername, rootPassword)
+		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
 		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
 		db, err := mysql.NewMysqlDB(connectionString)
 		if err != nil {
@@ -139,12 +140,46 @@ var createReplicaUserCmd = &cobra.Command{
 		err = db.CreateReplicaUser(mysql.CreateReplicaUserSettings{
 			Force:    force,
 			DryRun:   dryRun,
-			Schema:   viper.GetString("mysql.schema"),
+			Schema:   viper.GetString("mysql.database"),
 			Username: viper.GetString("mysql.username"),
 			Password: viper.GetString("mysql.password"),
 		})
 		if err != nil {
 			log.Fatal().Err(err).Msg("Could not create replica user")
+		}
+	},
+}
+
+var createReplicaDatabaseCmd = &cobra.Command{
+	Use:   "create-replica-database",
+	Short: "Create a replica database",
+	Run: func(cmd *cobra.Command, args []string) {
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		force, _ := cmd.Flags().GetBool("force")
+
+		rootUsername := viper.GetString("mysql.root-username")
+		rootPassword := viper.GetString("mysql.root-password")
+		connectionString := getMysqlConnectionString(rootUsername, rootPassword, "mysql")
+		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
+		db, err := mysql.NewMysqlDB(connectionString)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not connect to database")
+		}
+
+		defer func() {
+			err := db.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("Could not close database connection")
+			}
+		}()
+
+		err = db.CreateReplicaDatabase(mysql.CreateReplicaDatabaseSettings{
+			Force:    force,
+			DryRun:   dryRun,
+			Database: viper.GetString("mysql.database"),
+		})
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not create replica database")
 		}
 	},
 }
@@ -168,12 +203,13 @@ var createReplicaUserCmd = &cobra.Command{
 
 // TODO create a test framework using a docker test DB to test binlog streaming
 
-// TODO look at ast union type pattern to see if applicable for generating fake schemas
-
 func init() {
 	createReplicaUserCmd.Flags().Bool("dry-run", false, "Dry run")
 	createReplicaUserCmd.Flags().Bool("force", false, "Force recreation")
 
-	MysqlCmd.AddCommand(schemaCmd, checkConfigCmd, createReplicaUserCmd)
+	createReplicaDatabaseCmd.Flags().Bool("dry-run", false, "Dry run")
+	createReplicaDatabaseCmd.Flags().Bool("force", false, "Force recreation")
+
+	MysqlCmd.AddCommand(schemaCmd, checkConfigCmd, createReplicaUserCmd, createReplicaDatabaseCmd)
 
 }
