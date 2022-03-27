@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"majipoor/cmd/majipoor/gen"
 	"majipoor/cmd/majipoor/mysql"
 	"os"
 	"strings"
@@ -118,6 +119,7 @@ func main() {
 	viper.AutomaticEnv()
 
 	rootCmd.AddCommand(mysql.MysqlCmd)
+	rootCmd.AddCommand(gen.GenCmd)
 
 	_ = rootCmd.Execute()
 }

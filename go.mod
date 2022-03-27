@@ -3,6 +3,7 @@ module majipoor
 go 1.18
 
 require (
+	github.com/brianvoe/gofakeit/v6 v6.15.0
 	github.com/go-mysql-org/go-mysql v1.4.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/huandu/go-sqlbuilder v1.13.0
@@ -19,6 +20,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/lib/pq v1.10.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect

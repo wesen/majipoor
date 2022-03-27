@@ -153,13 +153,6 @@ var createReplicaUserCmd = &cobra.Command{
 // CREATE USER usr_replica WITH PASSWORD 'replica';
 // CREATE DATABASE db_replica WITH OWNER usr_replica;
 
-// TODO(manuel) Add command to check my.cnf file
-//binlog_format= ROW
-//binlog_row_image=FULL
-//log-bin = mysql-bin
-//server-id = 1
-//expire_logs_days = 10
-
 // TODO(manuel) Build a tool to generate full schemas and test data, so that we can test replication against a real setup
 // - this should generate schemas, fake data for the schemas, inserts, updates, deletes
 // - it should also generate DDL statements (alter, drop, etc...)
@@ -171,7 +164,7 @@ var createReplicaUserCmd = &cobra.Command{
 
 // TODO(manuel) Run the schema dump against the ttc database and see which types we get
 
-// TODO(manuel) Gather which indexes to create when inspeecting the schema
+// TODO(manuel) Gather which indexes to create when inspecting the schema
 
 // TODO create a test framework using a docker test DB to test binlog streaming
 
