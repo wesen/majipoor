@@ -229,15 +229,6 @@ var createReplicaUserCmd = &cobra.Command{
 	},
 }
 
-// TODO(manuel) Add command to initialize user on the replica side
-// CREATE USER usr_replica ;
-//SET PASSWORD FOR usr_replica=PASSWORD('replica');
-//GRANT ALL ON sakila.* TO 'usr_replica';
-//GRANT RELOAD ON *.* to 'usr_replica';
-//GRANT REPLICATION CLIENT ON *.* to 'usr_replica';
-//GRANT REPLICATION SLAVE ON *.* to 'usr_replica';
-//FLUSH PRIVILEGES;
-
 // TODO(manuel) On postgresql side
 // CREATE USER usr_replica WITH PASSWORD 'replica';
 // CREATE DATABASE db_replica WITH OWNER usr_replica;
