@@ -12,7 +12,7 @@ import (
 )
 
 type MysqlSlaveStatus struct {
-	RetrievedGtidSet string `db:"Retrieved_Gtid_Set"`
+	RetrievedGtidSet string `Db:"Retrieved_Gtid_Set"`
 }
 
 type MysqlGlobalVariables struct {
@@ -24,11 +24,11 @@ type MysqlGlobalVariables struct {
 }
 
 type MysqlDB struct {
-	db *sqlx.DB
+	Db *sqlx.DB
 }
 
 func (md *MysqlDB) Close() error {
-	return md.db.Close()
+	return md.Db.Close()
 }
 
 func NewMysqlDB(connectionString string) (*MysqlDB, error) {
@@ -41,7 +41,7 @@ func NewMysqlDB(connectionString string) (*MysqlDB, error) {
 	db.SetMaxIdleConns(10)
 	db.SetMaxOpenConns(10)
 
-	return &MysqlDB{db: db}, nil
+	return &MysqlDB{Db: db}, nil
 }
 
 func getMysqlVariable(db *sqlx.DB, variableName string) (string, error) {
@@ -64,7 +64,7 @@ func (md *MysqlDB) GetMysqlGlobalVariables() (*MysqlGlobalVariables, error) {
 		v, ok := f.Tag.Lookup("mysql")
 		if ok {
 			_log := log.With().Str("field", f.Name).Str("mysql-variable", v).Logger()
-			value, err := getMysqlVariable(md.db, v)
+			value, err := getMysqlVariable(md.Db, v)
 			if err != nil && err != sql.ErrNoRows {
 				_log.Error().Err(err).Msg("Could not query variable")
 				continue
@@ -87,7 +87,7 @@ func (md *MysqlDB) GetMysqlGlobalVariables() (*MysqlGlobalVariables, error) {
 
 func (md *MysqlDB) GetMysqlSlaveStatus() (*MysqlSlaveStatus, error) {
 	slaveStatus := &MysqlSlaveStatus{}
-	err := md.db.Unsafe().Get(slaveStatus, "SHOW SLAVE status")
+	err := md.Db.Unsafe().Get(slaveStatus, "SHOW SLAVE status")
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -115,7 +115,7 @@ func (md *MysqlDB) GetTables(schema string, limitTables []string, skipTables []s
 		skipTableCheck[v] = true
 	}
 
-	rows, err := md.db.Query(sql_, args...)
+	rows, err := md.Db.Query(sql_, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,18 +144,18 @@ func (md *MysqlDB) GetTables(schema string, limitTables []string, skipTables []s
 }
 
 type ColumnMetadata struct {
-	ColumnName             string  `db:"column_name"`
-	ColumnDefault          *string `db:"column_default"`
-	OrdinalPosition        int     `db:"ordinal_position"`
-	DataType               string  `db:"data_type"`
-	ColumnType             string  `db:"column_type"`
-	CharacterMaximumLength *int    `db:"character_maximum_length"`
-	Extra                  string  `db:"extra"`
-	ColumnKey              string  `db:"column_key"`
-	IsNullable             string  `db:"is_nullable"`
-	NumericPrecision       *int    `db:"numeric_precision"`
-	NumericScale           *int    `db:"numeric_scale"`
-	EnumList               *string `db:"enum_list"`
+	ColumnName             string  `Db:"column_name"`
+	ColumnDefault          *string `Db:"column_default"`
+	OrdinalPosition        int     `Db:"ordinal_position"`
+	DataType               string  `Db:"data_type"`
+	ColumnType             string  `Db:"column_type"`
+	CharacterMaximumLength *int    `Db:"character_maximum_length"`
+	Extra                  string  `Db:"extra"`
+	ColumnKey              string  `Db:"column_key"`
+	IsNullable             string  `Db:"is_nullable"`
+	NumericPrecision       *int    `Db:"numeric_precision"`
+	NumericScale           *int    `Db:"numeric_scale"`
+	EnumList               *string `Db:"enum_list"`
 }
 
 func (md *MysqlDB) GetTableMetadata(schema string, table string) ([]*ColumnMetadata, error) {
@@ -175,7 +175,7 @@ func (md *MysqlDB) GetTableMetadata(schema string, table string) ([]*ColumnMetad
 
 	sql_, args := sb.Build()
 
-	rows, err := md.db.Queryx(sql_, args...)
+	rows, err := md.Db.Queryx(sql_, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,7 @@ func contains(needle string, haystack []string) bool {
 
 var defaultCharacterSet = "utf8"
 
+// TODO(manuel) This can probably be done in Go, not in SQL
 func (c *ColumnMetadata) getSelectCSVStatement() string {
 	if contains(c.DataType, hexTypes) {
 		return fmt.Sprintf("hex(%s)", c.ColumnName)
@@ -252,4 +253,8 @@ func GetSelectCSVSatement(table string, columns []*ColumnMetadata) string {
 	}
 	return fmt.Sprintf("REPLACE(CONCAT('\"',CONCAT_WS('\",\"',%s),'\"'),'\"NULL\"','NULL')",
 		strings.Join(mapValues(selectCsvs), ",\n"))
+}
+
+func (md *MysqlDB) Exec(sql string, args ...any) (sql.Result, error) {
+	return md.Db.Exec(sql, args...)
 }

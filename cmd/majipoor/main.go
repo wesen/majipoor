@@ -87,7 +87,7 @@ func main() {
 
 	rootCmd.PersistentFlags().String("mysql-host", "localhost", "Mysql hostname")
 	rootCmd.PersistentFlags().String("mysql-username", "mysql", "Mysql username")
-	rootCmd.PersistentFlags().String("mysql-password", "master", "Mysql password")
+	rootCmd.PersistentFlags().String("mysql-password", "", "Mysql password")
 	rootCmd.PersistentFlags().Int("mysql-port", 3306, "Mysql port")
 	rootCmd.PersistentFlags().String("mysql-db", "mysql", "Mysql database")
 	rootCmd.PersistentFlags().String("mysql-schema", "mysql", "Mysql source schema")
@@ -98,6 +98,10 @@ func main() {
 			"mysql-limit-tables", "mysql-skip-tables"}); err != nil {
 		log.Fatal().Err(err).Msg("Could not bind persistent flags")
 	}
+
+	// these are only used for configuration and for testing
+	rootCmd.PersistentFlags().String("mysql-root-username", "root", "Mysql root username")
+	rootCmd.PersistentFlags().String("mysql-root-password", "master", "Mysql root password")
 
 	rootCmd.PersistentFlags().String("postgresql-host", "localhost", "PG hostname")
 	rootCmd.PersistentFlags().String("postgresql-username", "postgres", "PG username")
