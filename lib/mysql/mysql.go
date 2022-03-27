@@ -88,9 +88,6 @@ func (md *MysqlDB) GetMysqlGlobalVariables() (*MysqlGlobalVariables, error) {
 func (md *MysqlDB) GetMysqlSlaveStatus() (*MysqlSlaveStatus, error) {
 	slaveStatus := &MysqlSlaveStatus{}
 	err := md.Db.Unsafe().Get(slaveStatus, "SHOW SLAVE status")
-	if err == sql.ErrNoRows {
-		err = nil
-	}
 	return slaveStatus, err
 }
 

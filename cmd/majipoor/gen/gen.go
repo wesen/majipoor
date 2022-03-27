@@ -23,6 +23,7 @@ var genTableCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		log.Debug().Msgf("Generating fake data for table %s", name)
 		t := schema_gen.GenerateTable(name)
+		name = t.Name
 		createStatement := t.TableDefinition()
 		fmt.Printf(createStatement)
 

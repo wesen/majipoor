@@ -15,10 +15,11 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-func printMemUsage() {
+func logMemUsage() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	// TODO(manuel) use zerolog here instead of clear text logging
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
@@ -30,9 +31,8 @@ func StartBackgroundGoroutinePrinter() {
 		for {
 			time.Sleep(time.Second * 5)
 			runtime.GC()
-			fmt.Println()
-			printMemUsage()
-			fmt.Printf("======= Goroutines: %d\n\n", runtime.NumGoroutine())
+			logMemUsage()
+			log.Info().Int("num_goroutines", runtime.NumGoroutine()).Msg("==== goroutines ====")
 		}
 	}()
 }

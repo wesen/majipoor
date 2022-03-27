@@ -4,6 +4,7 @@
 package mysql
 
 import (
+	"database/sql"
 	"github.com/spf13/cobra"
 	"majipoor/lib/helpers"
 	"majipoor/lib/mysql"
@@ -14,52 +15,11 @@ import (
 	_ "github.com/go-mysql-org/go-mysql/replication"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 var MysqlCmd = &cobra.Command{
 	Use:   "mysql",
 	Short: "mysql related commands",
-}
-
-var schemaCmd = &cobra.Command{
-	Use:   "schema",
-	Short: "parse and dump mysql schema",
-	Run: func(cmd *cobra.Command, args []string) {
-		connectionString := helpers.GetReplicaMysqlConnectionString()
-		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
-		db, err := mysql.NewMysqlDB(connectionString)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not connect to database")
-		}
-
-		defer func() {
-			err := db.Close()
-			if err != nil {
-				log.Error().Err(err).Msg("Could not close database connection")
-			}
-		}()
-
-		database := viper.GetString("mysql.database")
-		tables, err := db.GetTables(database, viper.GetStringSlice("mysql.limit-tables"),
-			viper.GetStringSlice("mysql.skip-tables"))
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not get tables")
-		}
-		for _, table := range tables {
-			columns, err := db.GetTableMetadata(database, table)
-			if err != nil {
-				log.Fatal().Err(err).Str("table", table).Msg("Could not get table metadata")
-			}
-			log.Info().Str("table", table).Msg("Found table")
-			for _, c := range columns {
-				log.Info().Str("table", table).Str("column", c.ColumnName).Msg("Found column")
-			}
-
-			stmt := mysql.GetSelectCSVSatement(table, columns)
-			fmt.Println(stmt)
-		}
-	},
 }
 
 var checkConfigCmd = &cobra.Command{
@@ -85,7 +45,18 @@ var checkConfigCmd = &cobra.Command{
 			log.Fatal().Err(err).Msg("Could not get mysql global variables")
 		}
 
-		if config.LogBin == "ON" && config.BinlogFormat == "ROW" && config.BinlogRowImage == "FULL" {
+		log.Info().Interface("mysql-config", config).Send()
+
+		slaveStatus, err := db.GetMysqlSlaveStatus()
+		if err == sql.ErrNoRows {
+			log.Warn().Msg("No slave status found")
+		} else if err != nil {
+			log.Fatal().Err(err).Msg("Could not get slave status")
+		} else {
+			log.Info().Interface("slave-status", slaveStatus).Send()
+		}
+
+		if config.LogBin == "ON" && config.BinlogFormat == "ROW" && config.BinlogRowImage == "FULL" && config.GtidMode == "ON" {
 			log.Info().Msg("Replica possible")
 		} else {
 			log.Error().Msg("Replica not possible")
@@ -97,73 +68,9 @@ binlog_format= ROW
 binlog_row_image=FULL
 log-bin = mysql-bin
 server-id = 1
-expire_logs_days = 10`)
-		}
-	},
-}
-
-var createReplicaUserCmd = &cobra.Command{
-	Use:   "create-replica-user",
-	Short: "Create a replica user",
-	Run: func(cmd *cobra.Command, args []string) {
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		force, _ := cmd.Flags().GetBool("force")
-
-		connectionString := helpers.GetRootMysqlConnectionString()
-		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
-		db, err := mysql.NewMysqlDB(connectionString)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not connect to database")
-		}
-
-		defer func() {
-			err := db.Close()
-			if err != nil {
-				log.Error().Err(err).Msg("Could not close database connection")
-			}
-		}()
-
-		err = db.CreateReplicaUser(mysql.CreateReplicaUserSettings{
-			Force:    force,
-			DryRun:   dryRun,
-			Schema:   viper.GetString("mysql.database"),
-			Username: viper.GetString("mysql.username"),
-			Password: viper.GetString("mysql.password"),
-		})
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not create replica user")
-		}
-	},
-}
-
-var createReplicaDatabaseCmd = &cobra.Command{
-	Use:   "create-replica-database",
-	Short: "Create a replica database",
-	Run: func(cmd *cobra.Command, args []string) {
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		force, _ := cmd.Flags().GetBool("force")
-
-		connectionString := helpers.GetRootMysqlConnectionString()
-		log.Debug().Str("mysql-connection-string", connectionString).Msg("Connecting to mysql")
-		db, err := mysql.NewMysqlDB(connectionString)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not connect to database")
-		}
-
-		defer func() {
-			err := db.Close()
-			if err != nil {
-				log.Error().Err(err).Msg("Could not close database connection")
-			}
-		}()
-
-		err = db.CreateReplicaDatabase(mysql.CreateReplicaDatabaseSettings{
-			Force:    force,
-			DryRun:   dryRun,
-			Database: viper.GetString("mysql.database"),
-		})
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not create replica database")
+expire_logs_days = 10
+gtid_mode=ON
+enforce-gtid-consistency=ON`)
 		}
 	},
 }
