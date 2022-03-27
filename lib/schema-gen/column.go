@@ -11,6 +11,7 @@ type ProtoColumn interface {
 	Instance() *Column
 }
 
+// TODO(manuel) Add code to serialize the schema generator data to disk, so it can be reloaded for more generation
 type Column struct {
 	Name              string
 	HasLength         bool
@@ -22,37 +23,23 @@ type Column struct {
 	Precision    int64
 	Scale        int64
 
-	DefaultValue interface{}
+	DefaultValue string
 	EnumValues   []string
 
 	ProtoColumn ProtoColumn
 }
 
-type Index struct {
-	Name        string
-	ColumnNames []string
-	IsUnique    bool
-}
+func (c *Column) ColumnDefinition() string {
+	s := fmt.Sprintf("%s %s", c.Name, c.DatabaseType)
 
-type Table struct {
-	Name    string
-	Columns []*Column
-	Indexes []*Index
+	if !c.Nullable {
+		s += " NOT NULL"
+	}
+	if c.DefaultValue != "" {
+		s += " " + c.DefaultValue
+	}
 
-	PrimaryKey string
-}
-
-var tableNames = []string{
-	"accounts",
-	"customers",
-	"items",
-	"values",
-	"orders", "stores", "order_items",
-	"widgets", "categories", "keys", "objects", "tags",
-	"roles", "permissions", "posts", "post_metadata",
-	"metadata", "entries", "logs", "log_entries",
-	"capabilities", "jobs", "queues", "job_logs",
-	"queue_items",
+	return s
 }
 
 type numericColumn struct {
@@ -80,7 +67,7 @@ func (c *numericColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = rand.Intn(100)
+			col.DefaultValue = fmt.Sprintf("DEFAULT %d", rand.Intn(100))
 		}
 		return col
 
@@ -92,7 +79,7 @@ func (c *numericColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = rand.Float64()
+			col.DefaultValue = fmt.Sprintf("DEFAULT %f", rand.Float64())
 		}
 		return col
 
@@ -104,7 +91,7 @@ func (c *numericColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = rand.Float64()
+			col.DefaultValue = fmt.Sprintf("DEFAULT %f", rand.Float64())
 		}
 		return col
 	}
@@ -140,7 +127,7 @@ func (c *dateColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = defaultYear
+			col.DefaultValue = fmt.Sprintf("DEFAULT '%s'", defaultYear)
 		}
 		return col
 
@@ -161,7 +148,7 @@ func (c *dateColumn) Instance() *Column {
 					col.DefaultValue = "current_timestamp on update current_timestamp"
 				}
 			} else {
-				col.DefaultValue = fmt.Sprintf("%s %s.%s", defaultYear, defaultTime, defaultFraction)
+				col.DefaultValue = fmt.Sprintf("DEFAULT '%s %s.%s'", defaultYear, defaultTime, defaultFraction)
 			}
 		}
 		return col
@@ -174,7 +161,7 @@ func (c *dateColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = fmt.Sprintf("%03d:%02d:%02d", randInRange(-800, 800), randInRange(0, 59), randInRange(0, 59))
+			col.DefaultValue = fmt.Sprintf("DEFAULT '%03d:%02d:%02d'", randInRange(-800, 800), randInRange(0, 59), randInRange(0, 59))
 		}
 		return col
 
@@ -186,7 +173,7 @@ func (c *dateColumn) Instance() *Column {
 			ProtoColumn:  c,
 		}
 		if hasDefaultValue {
-			col.DefaultValue = randInRange(1900, 2100)
+			col.DefaultValue = fmt.Sprintf("DEFAULT %d", randInRange(1900, 2100))
 		}
 		return col
 	}
@@ -216,7 +203,7 @@ func (c *textColumn) Instance() *Column {
 	useCharacterSet := rand.Intn(3) == 0
 	characterSet := randomString([]string{"utf8", "utf8mb4", "latin1", "ascii"})
 
-	defaultValue := c.valueGen()
+	defaultValue := fmt.Sprintf("'%s'", c.valueGen())
 
 	var col *Column
 
@@ -231,13 +218,17 @@ func (c *textColumn) Instance() *Column {
 		hasDefaultValue = false
 
 	case 1:
-		precision := randInRange(5, 30)
+		length := randInRange(5, 30)
 		col = &Column{
 			Name:     c.name,
 			Nullable: isNullable,
+			Length:   int64(length),
 			DatabaseType: fmt.Sprintf("%s(%d)",
-				randomString([]string{"char", "varchar", "binary", "varbinary"}), precision),
+				randomString([]string{"char", "varchar", "binary", "varbinary"}), length),
 			ProtoColumn: c,
+		}
+		if len(defaultValue) > length {
+			defaultValue = defaultValue[:length]
 		}
 	}
 
@@ -304,46 +295,4 @@ var protoColumns = []ProtoColumn{
 	&blobColumn{"data"},
 	&blobColumn{"binary_data"},
 	&blobColumn{"binary_contents"},
-}
-
-func GenerateTable() *Table {
-	hasId := rand.Intn(2) == 0
-
-	usedColumns := make(map[string]bool)
-	for _, column := range protoColumns {
-		usedColumns[column.GetName()] = false
-	}
-
-	nColumns := randInRange(1, len(protoColumns))
-	columns := []*Column{}
-	if hasId {
-		columns = append(columns, &Column{
-			Name:         "id",
-			Nullable:     false,
-			DatabaseType: "int",
-			DefaultValue: "auto_increment",
-			ProtoColumn:  &numericColumn{"id"},
-		})
-		usedColumns["id"] = true
-
-	}
-
-	for i := 0; i < nColumns; i++ {
-		column := protoColumns[rand.Intn(len(protoColumns))]
-		if usedColumns[column.GetName()] {
-			i--
-			continue
-		}
-		instance := column.Instance()
-		if instance != nil {
-			columns = append(columns, column.Instance())
-			usedColumns[column.GetName()] = true
-		}
-	}
-
-	return &Table{
-		Name:       randomString(tableNames),
-		Columns:    columns,
-		PrimaryKey: "id",
-	}
 }
