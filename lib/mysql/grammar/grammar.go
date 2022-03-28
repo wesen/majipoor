@@ -30,19 +30,24 @@ type CreateDefinition struct {
 }
 
 type ColumnDefinition struct {
-	DataType      ColumnDataType `@@`
-	NotNull       bool           `( @( "NOT" "NULL" ) | "NULL" )?`
-	Default       *ColumnDefault `( "DEFAULT" @@ )?`
-	Visible       bool           `( @"VISIBLE" | "INVISIBLE" )?`
-	AutoIncrement bool           `@"AUTO_INCREMENT"? `
+	DataType      ColumnDataType   `@@`
+	NotNull       bool             `( @( "NOT" "NULL" ) | "NULL" )?`
+	Default       *ColumnDefault   `( "DEFAULT" @@ )?`
+	Visible       bool             `( @"VISIBLE" | "INVISIBLE" )?`
+	AutoIncrement bool             `@"AUTO_INCREMENT"? `
+	UniqueKey     bool             `@( "UNIQUE" "KEY"? )?`
+	PrimaryKey    bool             `@( "PRIMARY"? "KEY" )?`
+	Comment       *string          `( "COMMENT" @String )?`
+	Collate       *string          `( "COLLATE" @Ident )?`
+	ColumnFormat  *UppercaseString `( "COLUMN_FORMAT" @( "FIXED" | "DYNAMIC" | "DEFAULT" ) )?`
 }
 
 type ColumnDataType struct {
 	Bit     *BitDataType     `( @@`
 	Integer *IntegerDataType `| @@`
-	// TODO should we handle this as TINYINT(1)?
-	Bool bool `| @( "BOOL" | "BOOLEAN" )`
-	Last bool `)`
+	String  *StringDataType  `| @@`
+	Bool    bool             `| @( "BOOL" | "BOOLEAN" )`
+	Last    bool             `)`
 }
 
 type BitDataType struct {
@@ -50,16 +55,26 @@ type BitDataType struct {
 }
 
 type IntegerDataType struct {
-	Type      *SqlType `@("TINYINT" | "SMALLINT" | "MEDIUMINT" | "INT" | "BIGINT" | "INTEGER")`
-	Precision *int     `( "(" @Number ")" )?`
-	Unsigned  bool     `@"UNSIGNED"?`
-	Zerofill  bool     `@"ZEROFILL"?`
+	Type      *UppercaseString `@("TINYINT" | "SMALLINT" | "MEDIUMINT" | "INT" | "BIGINT" | "INTEGER")`
+	Precision *int             `( "(" @Number ")" )?`
+	Unsigned  bool             `@"UNSIGNED"?`
+	Zerofill  bool             `@"ZEROFILL"?`
 }
 
-type SqlType string
+type StringDataType struct {
+	IsNational bool             `@"NATIONAL"?`
+	Type       *UppercaseString `@("CHAR" | "VARCHAR" | "TEXT" | "TINYTEXT" | "MEDIUMTEXT" | "LONGTEXT")`
 
-func (s *SqlType) Capture(values []string) error {
-	*s = SqlType(strings.ToUpper(values[0]))
+	// Precision is mandatory for VARCHAR, and not allowed for TINYTEXT and co, but whatever
+	Precision     *int    `( "(" @Number ")" )?`
+	CharacterSet  *string `( "CHARACTER" "SET" @Ident )?`
+	CollationName *string `( "COLLATE" @Ident )?`
+}
+
+type UppercaseString string
+
+func (s *UppercaseString) Capture(values []string) error {
+	*s = UppercaseString(strings.ToUpper(values[0]))
 	return nil
 }
 
