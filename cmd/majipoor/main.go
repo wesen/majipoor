@@ -50,6 +50,10 @@ var rootCmd = cobra.Command{
 			log.Debug().Msg("Logging error stacktraces")
 			zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		}
+
+		if viper.GetBool("log.log-goroutines") {
+			helpers.StartBackgroundGoroutinePrinter()
+		}
 	},
 }
 
@@ -78,12 +82,13 @@ func main() {
 		log.Trace().Err(err).Msg("Failed to read config")
 	}
 
+	rootCmd.PersistentFlags().Bool("log-goroutines", false, "Periodically log goroutine count")
 	rootCmd.PersistentFlags().Bool("log-debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().Bool("log-error-stacktrace", false, "Enable stacktrace logging on errors")
 	rootCmd.PersistentFlags().Bool("log-line", true, "Enable logging of file ane line number")
 	rootCmd.PersistentFlags().String("log-file", "", "Enable logging to file")
 	if err := viperBindNestedPFlags("log", &rootCmd,
-		[]string{"log-debug", "log-error-stacktrace", "log-line", "log-file"}); err != nil {
+		[]string{"log-debug", "log-error-stacktrace", "log-line", "log-file", "log-goroutines"}); err != nil {
 		log.Fatal().Err(err).Msg("Could not bind persistent flags")
 	}
 
