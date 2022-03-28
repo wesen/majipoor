@@ -1,0 +1,12 @@
+[mysqld]
+general_log     =1
+slow_query_log  =1
+long_query_time =2
+log_queries_not_using_indexes = 1
+binlog_format= ROW
+binlog_row_image=FULL
+log-bin = mysql-bin
+server-id = 1
+expire_logs_days = 10
+gtid_mode=ON
+enforce-gtid-consistency=ON
