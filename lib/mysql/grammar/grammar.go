@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/alecthomas/participle/v2"
 	"github.com/alecthomas/participle/v2/lexer"
-	"github.com/alecthomas/repr"
 	"strings"
 )
 
@@ -41,7 +40,9 @@ type ColumnDefinition struct {
 type ColumnDataType struct {
 	Bit     *BitDataType     `( @@`
 	Integer *IntegerDataType `| @@`
-	Last    bool             `)`
+	// TODO should we handle this as TINYINT(1)?
+	Bool bool `| @( "BOOL" | "BOOLEAN" )`
+	Last bool `)`
 }
 
 type BitDataType struct {
@@ -247,30 +248,30 @@ var (
 		"GEOMETRY", "POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON", "GEOMETRYCOLLECTION",
 	}
 	sqlLexer = lexer.MustSimple([]lexer.Rule{
+		{Name: "Comment", Pattern: `//.*|/\*.*?\*/`},
 		{
 			Name:    `Keyword`,
 			Pattern: fmt.Sprintf(`(?i)\b(%s)\b`, strings.Join(append(keywords, types...), "|")),
 		},
+		{Name: "whitespace", Pattern: `\s+`},
 		{Name: `Ident`, Pattern: `[a-zA-Z_][a-zA-Z0-9_]*`},
 		{Name: `Number`, Pattern: `[-+]?\d*\.?\d+([eE][-+]?\d+)?`},
 		{Name: `String`, Pattern: `'[^']*'|"[^"]*"`},
 		{Name: `Operators`, Pattern: `<>|!=|<=|>=|[-+*/%,.()=<>]`},
-		{Name: "whitespace", Pattern: `\s+`},
 	})
 	parser = participle.MustBuild(
 		&Create{},
 		participle.Lexer(sqlLexer),
 		participle.Unquote("String"),
 		participle.CaseInsensitive("Keyword"),
-		// participle.Elide("Comment"),
+		participle.Elide("Comment"),
 		// Need to solve left recursion detection first, if possible.
-		// participle.UseLookahead(),
+		participle.UseLookahead(1),
 	)
 )
 
 func Parse(s string) (*Create, error) {
 	sql := &Create{}
 	err := parser.ParseString("", s, sql)
-	repr.Println(sql, repr.Indent("  "), repr.OmitEmpty(true))
 	return sql, err
 }
