@@ -30,22 +30,65 @@ type CreateDefinition struct {
 }
 
 type ColumnDefinition struct {
-	DataType      ColumnDataType   `@@`
-	NotNull       bool             `( @( "NOT" "NULL" ) | "NULL" )?`
-	Default       *ColumnDefault   `( "DEFAULT" @@ )?`
-	Visible       bool             `( @"VISIBLE" | "INVISIBLE" )?`
-	AutoIncrement bool             `@"AUTO_INCREMENT"? `
-	UniqueKey     bool             `@( "UNIQUE" "KEY"? )?`
-	PrimaryKey    bool             `@( "PRIMARY"? "KEY" )?`
-	Comment       *string          `( "COMMENT" @String )?`
-	Collate       *string          `( "COLLATE" @Ident )?`
-	ColumnFormat  *UppercaseString `( "COLUMN_FORMAT" @( "FIXED" | "DYNAMIC" | "DEFAULT" ) )?`
+	DataType                  ColumnDataType             `@@`
+	NotNull                   bool                       `( @( "NOT" "NULL" ) | "NULL" )?`
+	Default                   *ColumnDefault             `( "DEFAULT" @@ )?`
+	Visible                   bool                       `( @"VISIBLE" | "INVISIBLE" )?`
+	AutoIncrement             bool                       `@"AUTO_INCREMENT"? `
+	UniqueKey                 bool                       `@( "UNIQUE" "KEY"? )?`
+	PrimaryKey                bool                       `@( "PRIMARY"? "KEY" )?`
+	Comment                   *string                    `( "COMMENT" @String )?`
+	Collate                   *string                    `( "COLLATE" @Ident )?`
+	ColumnFormat              *UppercaseString           `( "COLUMN_FORMAT" @( "FIXED" | "DYNAMIC" | "DEFAULT" ) )?`
+	EngineAttribute           *string                    `( "ENGINE_ATTRIBUTE" "="? @String )?`
+	SecondaryEngineAttribute  *string                    `( "SECONDARY_ENGINE_ATTRIBUTE" "="? @String )?`
+	Storage                   *string                    `( "STORAGE" @( "DISK" | "MEMORY" ) )?`
+	ReferenceDefinition       *ReferenceDefinition       `@@?`
+	CheckConstraintDefinition *CheckConstraintDefinition `@@?`
+}
+
+type ReferenceDefinition struct {
+	TableName string           `"REFERENCES" @Ident`
+	Keys      []*KeyPart       `"(" @@ ( "," @@ )* ")"`
+	Match     *string          `( "MATCH" @( "FULL" | "PARTIAL" | "SIMPLE" ) )?`
+	OnDelete  *ReferenceOption `( "ON" "DELETE" @( "RESTRICT" | "CASCADE" | "SET" "NULL" | "NO" "ACTION" | "SET" "DEFAULT" ) )?`
+	OnUpdate  *ReferenceOption `( "ON" "UPDATE" @( "RESTRICT" | "CASCADE" | "SET" "NULL" | "NO" "ACTION" | "SET" "DEFAULT" ) )?`
+}
+
+type ReferenceOption string
+
+func (r *ReferenceOption) Capture(values []string) error {
+	*r = ReferenceOption(strings.Join(values, " "))
+	return nil
+}
+
+type KeyPart struct {
+	KeyPartColumn *KeyPartColumn `( @@`
+	Expression    *Expression    `| @@ )`
+	IsAsc         bool           `( @"ASC" | "DESC" )?`
+}
+
+type KeyPartColumn struct {
+	Name   string `@Ident`
+	Length *int   `( "(" @Number ")" )?`
+}
+
+type CheckConstraintDefinition struct {
+	Constraint *CheckConstraint `@@?`
+	Expression *Expression      ` "CHECK" @@`
+	IsEnforced bool             `( @"ENFORCED" | "NOT" "ENFORCED" )?`
+}
+
+type CheckConstraint struct {
+	Name *string ` "CONSTRAINT" @Ident? `
 }
 
 type ColumnDataType struct {
 	Bit     *BitDataType     `( @@`
 	Integer *IntegerDataType `| @@`
 	String  *StringDataType  `| @@`
+	EnumSet *EnumDataType    `| @@`
+	Blob    *BlobDataType    `| @@`
 	Bool    bool             `| @( "BOOL" | "BOOLEAN" )`
 	Last    bool             `)`
 }
@@ -69,6 +112,20 @@ type StringDataType struct {
 	Precision     *int    `( "(" @Number ")" )?`
 	CharacterSet  *string `( "CHARACTER" "SET" @Ident )?`
 	CollationName *string `( "COLLATE" @Ident )?`
+}
+
+type BlobDataType struct {
+	Type *UppercaseString `@("BINARY" | "VARBINARY" | "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB")`
+
+	// Precision is mandatory for VARBINARY, and not allowed for TINYBLOB and co, but whatever
+	Precision *int `( "(" @Number ")" )?`
+}
+
+type EnumDataType struct {
+	IsSet         bool     `( "ENUM" | @"SET" )`
+	Values        []string `( "(" @String ( "," @String )* ")" )?`
+	CharacterSet  *string  `( "CHARACTER" "SET" @Ident )?`
+	CollationName *string  `( "COLLATE" @Ident )?`
 }
 
 type UppercaseString string

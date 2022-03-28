@@ -129,6 +129,44 @@ func TestParseMultipleColumns(t *testing.T) {
 	}
 }
 
+func TestParseEnum(t *testing.T) {
+	ast, err := Parse(`CREATE TABLE foobar ( enumColumn ENUM('foo', 'bar') DEFAULT 'foo' )`)
+
+	if assert.Nil(t, err) && assert.NotNil(t, ast) {
+		definition := ast.CreateDefinition[0].ColumnDefinition
+		require.False(t, definition.NotNull)
+		require.NotNil(t, definition.Default)
+		require.NotNil(t, definition.DataType.EnumSet)
+		require.False(t, definition.DataType.EnumSet.IsSet)
+		require.Equal(t, "foo", *definition.Default.String)
+
+		require.EqualValues(t, []string{"foo", "bar"}, definition.DataType.EnumSet.Values)
+	}
+
+	ast, err = Parse(`CREATE TABLE foobar ( setColumn SET('foo', 'bar') CHARACTER SET utf8mb4)`)
+	if assert.Nil(t, err) && assert.NotNil(t, ast) {
+		definition := ast.CreateDefinition[0].ColumnDefinition
+		require.False(t, definition.NotNull)
+		require.Nil(t, definition.Default)
+		require.NotNil(t, definition.DataType.EnumSet)
+		require.True(t, definition.DataType.EnumSet.IsSet)
+		require.EqualValues(t, []string{"foo", "bar"}, definition.DataType.EnumSet.Values)
+		require.Equal(t, "utf8mb4", *definition.DataType.EnumSet.CharacterSet)
+	}
+
+	ast, err = Parse(`CREATE TABLE foobar ( setColumn SET('foo', 'bar', 'baz') CHARACTER SET utf8mb4 DEFAULT 'foo,bar')`)
+	if assert.Nil(t, err) && assert.NotNil(t, ast) {
+		definition := ast.CreateDefinition[0].ColumnDefinition
+		require.False(t, definition.NotNull)
+		require.NotNil(t, definition.Default)
+		require.NotNil(t, definition.DataType.EnumSet)
+		require.True(t, definition.DataType.EnumSet.IsSet)
+		require.EqualValues(t, []string{"foo", "bar", "baz"}, definition.DataType.EnumSet.Values)
+		require.Equal(t, "utf8mb4", *definition.DataType.EnumSet.CharacterSet)
+		require.Equal(t, "foo,bar", *definition.Default.String)
+	}
+}
+
 func TestParseColumnOptions(t *testing.T) {
 	ast, err := Parse("CREATE TABLE foobar ( bitColumn BIT(5) NOT NULL DEFAULT 1 VISIBLE AUTO_INCREMENT UNIQUE KEY PRIMARY KEY COMMENT 'comment')")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
@@ -172,4 +210,40 @@ func TestParseColumnOptions(t *testing.T) {
     )
 `)
 	assert.NotNil(t, err)
+}
+
+func TestParseColumnReference(t *testing.T) {
+	ast, err := Parse(`CREATE TABLE foobar ( 
+          id INT REFERENCES foobar(id) MATCH FULL 
+          ON DELETE CASCADE 
+          ON UPDATE SET NULL,
+          name TEXT REFERENCES foobar(name(23) DESC, id ASC) MATCH PARTIAL 
+          ON UPDATE NO ACTION
+)`)
+
+	if assert.Nil(t, err) && assert.NotNil(t, ast) {
+		definition := ast.CreateDefinition[0].ColumnDefinition
+		require.NotNil(t, definition.ReferenceDefinition)
+		require.Equal(t, "foobar", definition.ReferenceDefinition.TableName)
+		require.Equal(t, 1, len(definition.ReferenceDefinition.Keys))
+		require.Equal(t, "id", definition.ReferenceDefinition.Keys[0].KeyPartColumn.Name)
+		require.False(t, definition.ReferenceDefinition.Keys[0].IsAsc)
+		require.Equal(t, "FULL", *definition.ReferenceDefinition.Match)
+		require.Equal(t, ReferenceOption("CASCADE"), *definition.ReferenceDefinition.OnDelete)
+		require.Equal(t, ReferenceOption("SET NULL"), *definition.ReferenceDefinition.OnUpdate)
+
+		definition = ast.CreateDefinition[1].ColumnDefinition
+		require.NotNil(t, definition.ReferenceDefinition)
+		require.Equal(t, "foobar", definition.ReferenceDefinition.TableName)
+		require.Equal(t, 2, len(definition.ReferenceDefinition.Keys))
+		require.Equal(t, "name", definition.ReferenceDefinition.Keys[0].KeyPartColumn.Name)
+		require.Equal(t, 23, *definition.ReferenceDefinition.Keys[0].KeyPartColumn.Length)
+		require.Equal(t, "id", definition.ReferenceDefinition.Keys[1].KeyPartColumn.Name)
+		require.False(t, definition.ReferenceDefinition.Keys[0].IsAsc)
+		require.True(t, definition.ReferenceDefinition.Keys[1].IsAsc)
+
+		require.Equal(t, "PARTIAL", *definition.ReferenceDefinition.Match)
+		require.Nil(t, definition.ReferenceDefinition.OnDelete)
+		require.Equal(t, ReferenceOption("NO ACTION"), *definition.ReferenceDefinition.OnUpdate)
+	}
 }
