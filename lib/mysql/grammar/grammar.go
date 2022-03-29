@@ -20,16 +20,96 @@ type Create struct {
 	Name             string              `@Ident`
 	IfNotExists      bool                `@( "IF" "NOT" "EXISTS" )?`
 	CreateDefinition []*CreateDefinition `"(" ( @@ ( "," @@ )* )? ")"`
-	//TableOptions     *TableOptions       `@@`
-	//PartitionOptions *PartitionOptions   `@@`
+	TableOptions     []TableOption       `@@*`
+	PartitionOptions *PartitionOptions   ` ( "PARTITION" "BY" @@ )?`
 }
 
 type CreateDefinition struct {
-	ColumnName       string            `@Ident`
-	ColumnDefinition *ColumnDefinition `@@`
+	ColumnDefinition          *ColumnDefinition          `( @@ `
+	SimpleIndexDefinition     *SimpleIndexDefinition     ` | @@`
+	SpecialIndexDefinition    *SpecialIndexDefinition    ` | @@`
+	PrimaryKeyDefinition      *PrimaryKeyDefinition      ` | @@`
+	UniqueKeyDefinition       *UniqueKeyDefinition       ` | @@`
+	ForeignKeyDefinition      *ForeignKeyDefinition      ` | @@`
+	CheckConstraintDefinition *CheckConstraintDefinition ` | @@ )`
+}
+
+type SimpleIndexDefinition struct {
+	IsIndex      bool           `( @"INDEX" | "KEY" )`
+	IndexName    *string        `@Ident?`
+	IndexType    *string        `( "USING" @("BTREE" | "HASH") )?`
+	Keys         []*KeyPart     `"(" @@ ( "," @@ )* ")"`
+	IndexOptions []*IndexOption `@@*`
+}
+
+type PrimaryKeyDefinition struct {
+	Constraint   *CheckConstraint `@@?`
+	IsPrimary    bool             `"PRIMARY" "KEY"`
+	IndexType    *string          `( "USING" @("BTREE" | "HASH") )?`
+	Keys         []*KeyPart       `"(" @@ ( "," @@ )* ")"`
+	IndexOptions []*IndexOption   `@@*`
+}
+
+type UniqueKeyDefinition struct {
+	Constraint   *CheckConstraint `@@?`
+	IsUnique     bool             `"UNIQUE"`
+	IsIndex      bool             `( @"INDEX" | "KEY" )`
+	IndexName    *string          `@Ident?`
+	IndexType    *string          `( "USING" @("BTREE" | "HASH") )?`
+	Keys         []*KeyPart       `"(" @@ ( "," @@ )* ")"`
+	IndexOptions []*IndexOption   `@@*`
+}
+
+type ForeignKeyDefinition struct {
+	Constraint          *CheckConstraint     `@@?`
+	IsForeign           bool                 `"FOREIGN" "KEY"`
+	IndexName           *string              `@Ident?`
+	ColumnNames         []string             `"(" @Ident ( "," @Ident )* ")"`
+	ReferenceDefinition *ReferenceDefinition `@@`
+}
+
+type SpecialIndexDefinition struct {
+	IndexSort    *string        `@( "FULLTEXT" | "SPATIAL" )`
+	IsIndex      bool           `( @"INDEX" | "KEY" )`
+	IndexName    *string        `@Ident?`
+	Keys         []*KeyPart     `"(" @@ ( "," @@ )* ")"`
+	IndexOptions []*IndexOption `@@*`
+}
+
+type IndexOption struct {
+	KeyBlockSize             *Value  `( @@`
+	IndexType                *string ` | "USING" @("BTREE" | "HASH") `
+	WithParser               *string ` | "WITH" "PARSER" @Ident`
+	Comment                  *string ` | "COMMENT" @String`
+	Visible                  bool    ` | ( @"VISIBLE" | "INVISIBLE" )`
+	EngineAttribute          *string ` | ( "ENGINE_ATTRIBUTE" "="? @String )`
+	SecondaryEngineAttribute *string ` | ( "SECONDARY_ENGINE_ATTRIBUTE" "="? @String ) )`
 }
 
 type ColumnDefinition struct {
+	Simple   *SimpleColumnDefinition `( @@`
+	AsColumn *AsColumnDefinition     `| @@ )`
+}
+
+type AsColumnDefinition struct {
+	ColumnName                string                     `@Ident`
+	DataType                  ColumnDataType             `@@`
+	CollationName             *string                    `( "COLLATE" @Ident )?`
+	GeneratedAlways           bool                       `@( "GENERATED" "ALWAYS" )?`
+	Expression                *Expression                `( "AS" "(" @@ ")" )?`
+	IsStored                  bool                       `( @"STORED" `
+	IsVirtual                 bool                       `| @"VIRTUAL" )?`
+	NotNull                   bool                       `( @( "NOT" "NULL" ) | "NULL" )?`
+	Visible                   bool                       `( @"VISIBLE" | "INVISIBLE" )?`
+	UniqueKey                 bool                       `@( "UNIQUE" "KEY"? )?`
+	PrimaryKey                bool                       `@( "PRIMARY"? "KEY" )?`
+	Comment                   *string                    `( "COMMENT" @String )?`
+	ReferenceDefinition       *ReferenceDefinition       `@@?`
+	CheckConstraintDefinition *CheckConstraintDefinition `@@?`
+}
+
+type SimpleColumnDefinition struct {
+	ColumnName                string                     `@Ident`
 	DataType                  ColumnDataType             `@@`
 	NotNull                   bool                       `( @( "NOT" "NULL" ) | "NULL" )?`
 	Default                   *ColumnDefault             `( "DEFAULT" @@ )?`
@@ -143,10 +223,86 @@ type ColumnDefault struct {
 	Array   *Array   ` | @@ )`
 }
 
-type TableOptions struct {
+type TableOption struct {
+	AutoExtendSize           *int        `( "AUTOEXTEND_SIZE" "="? @Number`
+	AutoIncrement            *int        ` | "AUTO_INCREMENT" "="? @Number`
+	AvgRowLength             *int        ` | "AVG_ROW_LENGTH" "="? @Number`
+	CharacterSet             *string     ` | "DEFAULT"? "CHARACTER" "SET" "=" @Ident`
+	Checksum                 *int        ` | "CHECKSUM" "="? @Number`
+	Collation                *string     ` | "DEFAULT"? "COLLATE" "="? @Ident`
+	Comment                  *string     ` | "COMMENT" "="? @String`
+	Compression              *string     ` | "COMPRESSION" "="? @String`
+	Connection               *string     ` | "CONNECTION" "="? @String`
+	DataDirectory            *string     ` | "DATA" "DIRECTORY" "="? @String`
+	IndexDirectory           *string     ` | "INDEX" "DIRECTORY" "="? @String`
+	DelayKeyWrite            *int        ` | "DELAY_KEY_WRITE" "="? @Number`
+	Encryption               *string     ` | "ENCRYPTION" "="? @String`
+	Engine                   *string     ` | "ENGINE" "="? @Ident`
+	EngineAttribute          *string     ` | "ENGINE_ATTRIBUTE" "="? @String `
+	InsertMethod             *string     ` | "INSERT_METHOD" "="? @("NO" | "FIRST" | "LAST")`
+	SecondaryEngineAttribute *string     ` | "SECONDARY_ENGINE_ATTRIBUTE" "="? @String`
+	KeyBlockSize             *int        ` | "KEY_BLOCK_SIZE" "="? @Number`
+	MaxRows                  *int        ` | "MAX_ROWS" "="? @Number`
+	MinRows                  *int        ` | "MIN_ROWS" "="? @Number`
+	PackKeys                 *string     ` | "PACK_KEYS" "="? @( Number | "DEFAULT" )`
+	Password                 *string     ` | "PASSWORD" "="? @String`
+	RowFormat                *string     ` | "ROW_FORMAT" "="? @( "DEFAULT" | "DYNAMIC" | "FIXED" | "COMPRESSED" | "REDUNDANT" | "COMPACT" )`
+	StatsAutoRecalc          *string     ` | "STATS_AUTO_RECALC" "="? @( "DEFAULT" | Number )`
+	StatsPersistent          *string     ` | "STATS_PERSISTENT" "="? @( "DEFAULT" | Number )`
+	StatsSamplePages         *int        ` | "STATS_SAMPLE_PAGES" "="? @Number`
+	TableSpace               *TableSpace ` | @@`
+	Union                    []string    ` | "UNION" "="? "(" @Ident ( "," @Ident )* ")" )`
+}
+
+type TableSpace struct {
+	Name            string `"TABLESPACE" @Ident`
+	IsDiskStorage   bool   `( "STORAGE" @"DISK" `
+	IsMemoryStorage bool   `| "STORAGE" @"MEMORY" )`
 }
 
 type PartitionOptions struct {
+	HashPartition        *HashPartition         `( @@ `
+	KeyPartition         *KeyPartition          `| @@`
+	RangePartition       *RangePartition        `| "RANGE" @@ `
+	ListPartition        *ListPartition         `| "LIST" @@ )`
+	Partitions           *int                   `( "PARTITIONS" @Number )?`
+	SubpartitionByHash   *HashPartition         `( "SUBPARTITION" "BY" @@`
+	SubPartitionByKey    *KeyPartition          `| "SUBPARTITION" "BY" @@ )?`
+	SubPartitions        *int                   `( "SUBPARTITIONS" @Number )?`
+	PartitionDefinitions []*PartitionDefinition `( "(" @@ ( "," @@ )* ")" )?`
+}
+
+type HashPartition struct {
+	IsLinear   bool       `@"LINEAR"?`
+	Expression Expression `"HASH" "(" @@ ")"`
+}
+
+type KeyPartition struct {
+	IsLinear  bool     `@"LINEAR"? "KEY"`
+	Algorithm *int     `("ALGORITHM" "=" @Number)?`
+	Columns   []string `"(" @Ident ( "," @Ident )* ")"`
+}
+
+type RangePartition struct {
+	Expression *Expression `( "(" @@ ")"`
+	Columns    []string    `| "COLUMNS" "(" @Ident ( "," @Ident )* ")" )`
+}
+
+type ListPartition struct {
+	Expression *Expression `( "(" @@ ")"`
+	Columns    []string    `| "COLUMNS" "(" @Ident ( "," @Ident )* ")" )`
+}
+
+type PartitionDefinition struct {
+	Name           string          `"PARTITION" @Ident`
+	ValuesLessThan *ValuesLessThan `( "VALUES" "LESS" "THAN" @@`
+	ValuesIn       []Value         ` | "VALUES" "IN" "(" @@ ( "," @@ )* ")" )?`
+}
+
+type ValuesLessThan struct {
+	IsMaxValue bool        `( @"MAXVALUE"?`
+	Expression *Expression `| "(" @@ ")"`
+	Values     []Value     `| "(" @@ ( "," @@ )* ")" )`
 }
 
 // Select based on http://www.h2database.com/html/grammar.html
@@ -320,17 +476,28 @@ var (
 		"GEOMETRY", "POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON", "GEOMETRYCOLLECTION",
 	}
 	sqlLexer = lexer.MustSimple([]lexer.Rule{
-		{Name: "Comment", Pattern: `//.*|/\*.*?\*/`},
+		{Name: "Comment", Pattern: ` //.*|/\*.*?\*/`},
 		{
 			Name:    `Keyword`,
 			Pattern: fmt.Sprintf(`(?i)\b(%s)\b`, strings.Join(append(keywords, types...), "|")),
 		},
-		{Name: "whitespace", Pattern: `\s+`},
-		{Name: `Ident`, Pattern: `[a-zA-Z_][a-zA-Z0-9_]*`},
-		{Name: `Number`, Pattern: `[-+]?\d*\.?\d+([eE][-+]?\d+)?`},
-		{Name: `String`, Pattern: `'[^']*'|"[^"]*"`},
-		{Name: `Operators`, Pattern: `<>|!=|<=|>=|[-+*/%,.()=<>]`},
-	})
+		{
+			Name: "whitespace", Pattern: `\s+`,
+		},
+		{
+			Name: `Ident`, Pattern: `[a-zA-Z_][a-zA-Z0-9_]*`,
+		},
+		{
+			Name: `Number`, Pattern: `[-+]?\d*\.?\d+([eE][-+]?\d+)?`,
+		},
+		{
+			Name: `String`, Pattern: `'[^']*'|"[^"]*"`,
+		},
+		{
+			Name: `Operators`, Pattern: `<>|!=|<=|>=|[-+*/%,.()=<>]`,
+		},
+	},
+	)
 	parser = participle.MustBuild(
 		&Create{},
 		participle.Lexer(sqlLexer),

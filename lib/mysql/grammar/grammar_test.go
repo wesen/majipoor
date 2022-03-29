@@ -32,27 +32,27 @@ func TestParseCaseComment(t *testing.T) {
 func TestParseBit(t *testing.T) {
 	ast, err := Parse("CREATE TABLE foobar ( bitColumn BIT )")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0]
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		assert.Equal(t, "bitColumn", definition.ColumnName)
-		require.NotNil(t, definition.ColumnDefinition.DataType.Bit)
-		require.Nil(t, definition.ColumnDefinition.DataType.Bit.Precision)
-		require.Nil(t, definition.ColumnDefinition.DataType.Integer)
+		require.NotNil(t, definition.DataType.Bit)
+		require.Nil(t, definition.DataType.Bit.Precision)
+		require.Nil(t, definition.DataType.Integer)
 	}
 	ast, err = Parse("CREATE TABLE foobar ( bitColumn BIT(5) )")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0]
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		assert.Equal(t, "bitColumn", definition.ColumnName)
-		require.NotNil(t, definition.ColumnDefinition.DataType.Bit)
-		require.Equal(t, 5, *definition.ColumnDefinition.DataType.Bit.Precision)
-		require.Nil(t, definition.ColumnDefinition.DataType.Integer)
+		require.NotNil(t, definition.DataType.Bit)
+		require.Equal(t, 5, *definition.DataType.Bit.Precision)
+		require.Nil(t, definition.DataType.Integer)
 	}
 	ast, err = Parse("CREATE TABLE foobar ( bitColumn BIT (5 ) )")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0]
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		assert.Equal(t, "bitColumn", definition.ColumnName)
-		require.NotNil(t, definition.ColumnDefinition.DataType.Bit)
-		require.Equal(t, 5, *definition.ColumnDefinition.DataType.Bit.Precision)
-		require.Nil(t, definition.ColumnDefinition.DataType.Integer)
+		require.NotNil(t, definition.DataType.Bit)
+		require.Equal(t, 5, *definition.DataType.Bit.Precision)
+		require.Nil(t, definition.DataType.Integer)
 	}
 }
 
@@ -63,20 +63,20 @@ func TestParseInteger(t *testing.T) {
 	} {
 		ast, err := Parse(s)
 		if assert.Nil(t, err) && assert.NotNil(t, ast) {
-			definition := ast.CreateDefinition[0]
+			definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 			assert.Equal(t, "intColumn", definition.ColumnName)
-			require.NotNil(t, definition.ColumnDefinition.DataType.Integer)
-			require.Nil(t, definition.ColumnDefinition.DataType.Integer.Precision)
-			require.NotNil(t, definition.ColumnDefinition.DataType.Integer.Type)
-			require.Equal(t, UppercaseString("TINYINT"), *definition.ColumnDefinition.DataType.Integer.Type)
-			require.Equal(t, false, definition.ColumnDefinition.DataType.Integer.Unsigned)
-			require.Nil(t, definition.ColumnDefinition.DataType.Bit)
+			require.NotNil(t, definition.DataType.Integer)
+			require.Nil(t, definition.DataType.Integer.Precision)
+			require.NotNil(t, definition.DataType.Integer.Type)
+			require.Equal(t, UppercaseString("TINYINT"), *definition.DataType.Integer.Type)
+			require.Equal(t, false, definition.DataType.Integer.Unsigned)
+			require.Nil(t, definition.DataType.Bit)
 		}
 	}
 
 	ast, err := Parse("CREATE TABLE foobar ( intColumn TINYINT(4) UNSIGNED ZEROFILL )")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		integer := ast.CreateDefinition[0].ColumnDefinition.DataType.Integer
+		integer := ast.CreateDefinition[0].ColumnDefinition.Simple.DataType.Integer
 		require.Equal(t, UppercaseString("TINYINT"), *integer.Type)
 		require.True(t, integer.Unsigned)
 		require.True(t, integer.Zerofill)
@@ -91,9 +91,11 @@ func TestParseBool(t *testing.T) {
 	} {
 		ast, err := Parse(s)
 		if assert.Nil(t, err) && assert.NotNil(t, ast) {
-			definition := ast.CreateDefinition[0]
+			require.NotNil(t, ast.CreateDefinition[0].ColumnDefinition)
+			require.NotNil(t, ast.CreateDefinition[0].ColumnDefinition.Simple)
+			definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 			assert.Equal(t, "boolColumn", definition.ColumnName)
-			require.True(t, definition.ColumnDefinition.DataType.Bool)
+			require.True(t, definition.DataType.Bool)
 		}
 	}
 }
@@ -107,25 +109,25 @@ func TestParseMultipleColumns(t *testing.T) {
 `)
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
 		require.Equal(t, 3, len(ast.CreateDefinition))
-		definition := ast.CreateDefinition[0]
-		require.False(t, definition.ColumnDefinition.NotNull)
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
+		require.False(t, definition.NotNull)
 		require.Equal(t, "bitColumn", definition.ColumnName)
-		require.Nil(t, definition.ColumnDefinition.Default)
-		require.NotNil(t, definition.ColumnDefinition.DataType.Bit)
+		require.Nil(t, definition.Default)
+		require.NotNil(t, definition.DataType.Bit)
 
-		definition = ast.CreateDefinition[1]
-		require.True(t, definition.ColumnDefinition.NotNull)
+		definition = ast.CreateDefinition[1].ColumnDefinition.Simple
+		require.True(t, definition.NotNull)
 		require.Equal(t, "foobar", definition.ColumnName)
-		require.NotNil(t, definition.ColumnDefinition.Default)
-		require.Equal(t, "foo", *definition.ColumnDefinition.Default.String)
+		require.NotNil(t, definition.Default)
+		require.Equal(t, "foo", *definition.Default.String)
 
-		definition = ast.CreateDefinition[2]
-		require.False(t, definition.ColumnDefinition.NotNull)
+		definition = ast.CreateDefinition[2].ColumnDefinition.Simple
+		require.False(t, definition.NotNull)
 		require.Equal(t, "blop", definition.ColumnName)
-		require.NotNil(t, definition.ColumnDefinition.Default)
-		require.Equal(t, 2.0, *definition.ColumnDefinition.Default.Number)
-		require.NotNil(t, definition.ColumnDefinition.DataType.Integer)
-		require.Equal(t, UppercaseString("INT"), *definition.ColumnDefinition.DataType.Integer.Type)
+		require.NotNil(t, definition.Default)
+		require.Equal(t, 2.0, *definition.Default.Number)
+		require.NotNil(t, definition.DataType.Integer)
+		require.Equal(t, UppercaseString("INT"), *definition.DataType.Integer.Type)
 	}
 }
 
@@ -133,7 +135,7 @@ func TestParseEnum(t *testing.T) {
 	ast, err := Parse(`CREATE TABLE foobar ( enumColumn ENUM('foo', 'bar') DEFAULT 'foo' )`)
 
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.False(t, definition.NotNull)
 		require.NotNil(t, definition.Default)
 		require.NotNil(t, definition.DataType.EnumSet)
@@ -145,7 +147,7 @@ func TestParseEnum(t *testing.T) {
 
 	ast, err = Parse(`CREATE TABLE foobar ( setColumn SET('foo', 'bar') CHARACTER SET utf8mb4)`)
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.False(t, definition.NotNull)
 		require.Nil(t, definition.Default)
 		require.NotNil(t, definition.DataType.EnumSet)
@@ -156,7 +158,7 @@ func TestParseEnum(t *testing.T) {
 
 	ast, err = Parse(`CREATE TABLE foobar ( setColumn SET('foo', 'bar', 'baz') CHARACTER SET utf8mb4 DEFAULT 'foo,bar')`)
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.False(t, definition.NotNull)
 		require.NotNil(t, definition.Default)
 		require.NotNil(t, definition.DataType.EnumSet)
@@ -170,7 +172,7 @@ func TestParseEnum(t *testing.T) {
 func TestParseColumnOptions(t *testing.T) {
 	ast, err := Parse("CREATE TABLE foobar ( bitColumn BIT(5) NOT NULL DEFAULT 1 VISIBLE AUTO_INCREMENT UNIQUE KEY PRIMARY KEY COMMENT 'comment')")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.True(t, definition.NotNull)
 		require.NotNil(t, definition.Default)
 		require.True(t, definition.Visible)
@@ -193,7 +195,7 @@ func TestParseColumnOptions(t *testing.T) {
     )
 `)
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.True(t, definition.NotNull)
 		require.NotNil(t, definition.Default)
 		require.False(t, definition.Visible)
@@ -222,7 +224,7 @@ func TestParseColumnReference(t *testing.T) {
 )`)
 
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		definition := ast.CreateDefinition[0].ColumnDefinition
+		definition := ast.CreateDefinition[0].ColumnDefinition.Simple
 		require.NotNil(t, definition.ReferenceDefinition)
 		require.Equal(t, "foobar", definition.ReferenceDefinition.TableName)
 		require.Equal(t, 1, len(definition.ReferenceDefinition.Keys))
@@ -232,7 +234,7 @@ func TestParseColumnReference(t *testing.T) {
 		require.Equal(t, ReferenceOption("CASCADE"), *definition.ReferenceDefinition.OnDelete)
 		require.Equal(t, ReferenceOption("SET NULL"), *definition.ReferenceDefinition.OnUpdate)
 
-		definition = ast.CreateDefinition[1].ColumnDefinition
+		definition = ast.CreateDefinition[1].ColumnDefinition.Simple
 		require.NotNil(t, definition.ReferenceDefinition)
 		require.Equal(t, "foobar", definition.ReferenceDefinition.TableName)
 		require.Equal(t, 2, len(definition.ReferenceDefinition.Keys))
@@ -245,5 +247,28 @@ func TestParseColumnReference(t *testing.T) {
 		require.Equal(t, "PARTIAL", *definition.ReferenceDefinition.Match)
 		require.Nil(t, definition.ReferenceDefinition.OnDelete)
 		require.Equal(t, ReferenceOption("NO ACTION"), *definition.ReferenceDefinition.OnUpdate)
+	}
+}
+
+func TestParseTableOptions(t *testing.T) {
+	ast, err := Parse(`CREATE TABLE foobar ( id INT ) 
+     AUTOEXTEND_SIZE = 23
+     AUTO_INCREMENT = 2
+     AVG_ROW_LENGTH = 3
+`)
+
+	if assert.Nil(t, err) && assert.NotNil(t, ast) {
+		require.Equal(t, 3, len(ast.TableOptions))
+		option := ast.TableOptions[0]
+		require.NotNil(t, option.AutoExtendSize)
+		require.Equal(t, 23, *option.AutoExtendSize)
+
+		option = ast.TableOptions[1]
+		require.NotNil(t, option.AutoIncrement)
+		require.Equal(t, 2, *option.AutoIncrement)
+
+		option = ast.TableOptions[2]
+		require.NotNil(t, option.AvgRowLength)
+		require.Equal(t, 3, *option.AvgRowLength)
 	}
 }
