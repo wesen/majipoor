@@ -227,7 +227,7 @@ type TableOption struct {
 	AutoExtendSize           *int        `( "AUTOEXTEND_SIZE" "="? @Number`
 	AutoIncrement            *int        ` | "AUTO_INCREMENT" "="? @Number`
 	AvgRowLength             *int        ` | "AVG_ROW_LENGTH" "="? @Number`
-	CharacterSet             *string     ` | "DEFAULT"? "CHARACTER" "SET" "=" @Ident`
+	CharacterSet             *string     ` | "DEFAULT"? "CHARACTER" "SET" "="? @Ident`
 	Checksum                 *int        ` | "CHECKSUM" "="? @Number`
 	Collation                *string     ` | "DEFAULT"? "COLLATE" "="? @Ident`
 	Comment                  *string     ` | "COMMENT" "="? @String`
@@ -257,7 +257,7 @@ type TableOption struct {
 type TableSpace struct {
 	Name            string `"TABLESPACE" @Ident`
 	IsDiskStorage   bool   `( "STORAGE" @"DISK" `
-	IsMemoryStorage bool   `| "STORAGE" @"MEMORY" )`
+	IsMemoryStorage bool   `| "STORAGE" @"MEMORY" )?`
 }
 
 type PartitionOptions struct {

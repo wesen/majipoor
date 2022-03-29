@@ -251,24 +251,207 @@ func TestParseColumnReference(t *testing.T) {
 }
 
 func TestParseTableOptions(t *testing.T) {
-	ast, err := Parse(`CREATE TABLE foobar ( id INT ) 
+	for _, s := range []string{
+		`CREATE TABLE foobar ( id INT ) 
      AUTOEXTEND_SIZE = 23
      AUTO_INCREMENT = 2
      AVG_ROW_LENGTH = 3
-`)
+`,
+		`CREATE TABLE foobar ( id INT ) 
+     AUTOEXTEND_SIZE 23
+     AUTO_INCREMENT 2
+     AVG_ROW_LENGTH 3
+`,
+	} {
+		ast, err := Parse(s)
 
-	if assert.Nil(t, err) && assert.NotNil(t, ast) {
-		require.Equal(t, 3, len(ast.TableOptions))
-		option := ast.TableOptions[0]
-		require.NotNil(t, option.AutoExtendSize)
-		require.Equal(t, 23, *option.AutoExtendSize)
+		if assert.Nil(t, err) && assert.NotNil(t, ast) {
+			require.Equal(t, 3, len(ast.TableOptions))
+			option := ast.TableOptions[0]
+			require.NotNil(t, option.AutoExtendSize)
+			require.Equal(t, 23, *option.AutoExtendSize)
 
-		option = ast.TableOptions[1]
-		require.NotNil(t, option.AutoIncrement)
-		require.Equal(t, 2, *option.AutoIncrement)
+			option = ast.TableOptions[1]
+			require.NotNil(t, option.AutoIncrement)
+			require.Equal(t, 2, *option.AutoIncrement)
 
-		option = ast.TableOptions[2]
-		require.NotNil(t, option.AvgRowLength)
-		require.Equal(t, 3, *option.AvgRowLength)
+			option = ast.TableOptions[2]
+			require.NotNil(t, option.AvgRowLength)
+			require.Equal(t, 3, *option.AvgRowLength)
+		}
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar ( id INT ) DEFAULT CHARACTER SET utf8mb4`,
+		`CREATE TABLE foobar ( id INT ) CHARACTER SET = utf8mb4`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 1, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].CharacterSet)
+		require.Equal(t, "utf8mb4", *ast.TableOptions[0].CharacterSet)
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar ( id INT ) CHECKSUM = 1 DEFAULT COLLATE foobar`,
+		`CREATE TABLE foobar ( id INT ) CHECKSUM 1 COLLATE foobar`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 2, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].Checksum)
+		require.Equal(t, 1, *ast.TableOptions[0].Checksum)
+		require.NotNil(t, ast.TableOptions[1].Collation)
+		require.Equal(t, "foobar", *ast.TableOptions[1].Collation)
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar (id INT) 
+  COMMENT = 'string'
+  COMPRESSION = 'ZLIB'
+  CONNECTION = 'connect_string'
+  DATA DIRECTORY = 'absolute path to directory'
+  DELAY_KEY_WRITE = 1
+  ENCRYPTION = 'Y'
+  ENGINE = InnoDB`,
+		`CREATE TABLE foobar (id INT) 
+  COMMENT 'string'
+  COMPRESSION 'ZLIB'
+  CONNECTION 'connect_string'
+  DATA DIRECTORY 'absolute path to directory'
+  DELAY_KEY_WRITE 1
+  ENCRYPTION 'Y'
+  ENGINE InnoDB`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 7, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].Comment)
+		require.Equal(t, "string", *ast.TableOptions[0].Comment)
+		require.NotNil(t, ast.TableOptions[1].Compression)
+		require.Equal(t, "ZLIB", *ast.TableOptions[1].Compression)
+		require.NotNil(t, ast.TableOptions[2].Connection)
+		require.Equal(t, "connect_string", *ast.TableOptions[2].Connection)
+		require.NotNil(t, ast.TableOptions[3].DataDirectory)
+		require.Equal(t, "absolute path to directory", *ast.TableOptions[3].DataDirectory)
+		require.NotNil(t, ast.TableOptions[4].DelayKeyWrite)
+		require.Equal(t, 1, *ast.TableOptions[4].DelayKeyWrite)
+		require.NotNil(t, ast.TableOptions[5].Encryption)
+		require.Equal(t, "Y", *ast.TableOptions[5].Encryption)
+		require.NotNil(t, ast.TableOptions[6].Engine)
+		require.Equal(t, "InnoDB", *ast.TableOptions[6].Engine)
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar (id INT) 
+  INDEX DIRECTORY = 'absolute path to directory'
+  ENGINE_ATTRIBUTE = 'foobar'
+  INSERT_METHOD = NO
+  KEY_BLOCK_SIZE = 23
+  MAX_ROWS = 12
+  MIN_ROWS = 1
+  PACK_KEYS = DEFAULT
+`,
+		`CREATE TABLE foobar (id INT) 
+  INDEX DIRECTORY 'absolute path to directory'
+  ENGINE_ATTRIBUTE 'foobar'
+  INSERT_METHOD NO
+  KEY_BLOCK_SIZE 23
+  MAX_ROWS 12
+  MIN_ROWS 1
+  PACK_KEYS DEFAULT`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 7, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].IndexDirectory)
+		require.Equal(t, "absolute path to directory", *ast.TableOptions[0].IndexDirectory)
+		require.NotNil(t, ast.TableOptions[1].EngineAttribute)
+		require.Equal(t, "foobar", *ast.TableOptions[1].EngineAttribute)
+		require.NotNil(t, ast.TableOptions[2].InsertMethod)
+		require.Equal(t, "NO", *ast.TableOptions[2].InsertMethod)
+		require.NotNil(t, ast.TableOptions[3].KeyBlockSize)
+		require.Equal(t, 23, *ast.TableOptions[3].KeyBlockSize)
+		require.NotNil(t, ast.TableOptions[4].MaxRows)
+		require.Equal(t, 12, *ast.TableOptions[4].MaxRows)
+		require.NotNil(t, ast.TableOptions[5].MinRows)
+		require.Equal(t, 1, *ast.TableOptions[5].MinRows)
+		require.NotNil(t, ast.TableOptions[6].PackKeys)
+		require.Equal(t, "DEFAULT", *ast.TableOptions[6].PackKeys)
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar (id INT) 
+  PACK_KEYS = 23
+  PASSWORD = 'string'
+  ROW_FORMAT = COMPACT
+  SECONDARY_ENGINE_ATTRIBUTE = 'string'
+  STATS_AUTO_RECALC = 1
+  STATS_PERSISTENT  = DEFAULT
+  STATS_SAMPLE_PAGES = 23
+`,
+		`CREATE TABLE foobar (id INT) 
+  PACK_KEYS 23
+  PASSWORD 'string'
+  ROW_FORMAT COMPACT
+  SECONDARY_ENGINE_ATTRIBUTE 'string'
+  STATS_AUTO_RECALC 1
+  STATS_PERSISTENT  DEFAULT
+  STATS_SAMPLE_PAGES 23
+`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 7, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].PackKeys)
+		require.Equal(t, "23", *ast.TableOptions[0].PackKeys)
+		require.NotNil(t, ast.TableOptions[1].Password)
+		require.Equal(t, "string", *ast.TableOptions[1].Password)
+		require.NotNil(t, ast.TableOptions[2].RowFormat)
+		require.Equal(t, "COMPACT", *ast.TableOptions[2].RowFormat)
+		require.NotNil(t, ast.TableOptions[3].SecondaryEngineAttribute)
+		require.Equal(t, "string", *ast.TableOptions[3].SecondaryEngineAttribute)
+		require.NotNil(t, ast.TableOptions[4].StatsAutoRecalc)
+		require.Equal(t, "1", *ast.TableOptions[4].StatsAutoRecalc)
+		require.NotNil(t, ast.TableOptions[5].StatsPersistent)
+		require.Equal(t, "DEFAULT", *ast.TableOptions[5].StatsPersistent)
+		require.NotNil(t, ast.TableOptions[6].StatsSamplePages)
+		require.Equal(t, 23, *ast.TableOptions[6].StatsSamplePages)
+	}
+
+	for _, s := range []string{
+		`CREATE TABLE foobar (id INT) 
+  TABLESPACE table1 STORAGE DISK
+  TABLESPACE table2
+  TABLESPACE table3 STORAGE MEMORY
+  UNION = (table1, table2, table3)
+`,
+		`CREATE TABLE foobar (id INT) 
+  TABLESPACE table1 STORAGE DISK
+  TABLESPACE table2
+  TABLESPACE table3 STORAGE MEMORY
+  UNION (table1, table2, table3)
+`,
+	} {
+		ast, err := Parse(s)
+		require.Nil(t, err)
+		require.Equal(t, 4, len(ast.TableOptions))
+		require.NotNil(t, ast.TableOptions[0].TableSpace)
+		require.Equal(t, "table1", ast.TableOptions[0].TableSpace.Name)
+		require.True(t, ast.TableOptions[0].TableSpace.IsDiskStorage)
+		require.False(t, ast.TableOptions[0].TableSpace.IsMemoryStorage)
+
+		require.NotNil(t, ast.TableOptions[1].TableSpace)
+		require.Equal(t, "table2", ast.TableOptions[1].TableSpace.Name)
+		require.False(t, ast.TableOptions[1].TableSpace.IsDiskStorage)
+		require.False(t, ast.TableOptions[1].TableSpace.IsMemoryStorage)
+
+		require.NotNil(t, ast.TableOptions[2].TableSpace)
+		require.Equal(t, "table3", ast.TableOptions[2].TableSpace.Name)
+		require.False(t, ast.TableOptions[2].TableSpace.IsDiskStorage)
+		require.True(t, ast.TableOptions[2].TableSpace.IsMemoryStorage)
+
+		require.Equal(t, 3, len(ast.TableOptions[3].Union))
+		require.Equal(t, []string{"table1", "table2", "table3"}, ast.TableOptions[3].Union)
 	}
 }
