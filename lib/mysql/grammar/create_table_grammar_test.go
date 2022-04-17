@@ -29,6 +29,16 @@ func TestParseCaseComment(t *testing.T) {
 	}
 }
 
+func TestTableName(t *testing.T) {
+	ast, err := Parse("CREATE TABLE foobar ( id INT )")
+	require.Nil(t, err)
+	assert.Equal(t, "foobar", ast.Name)
+
+	ast, err = Parse("CREATE TABLE foobar.baz ( id INT )")
+	require.Nil(t, err)
+	assert.Equal(t, "foobar.baz", ast.Name)
+}
+
 func TestParseBit(t *testing.T) {
 	ast, err := Parse("CREATE TABLE foobar ( bitColumn BIT )")
 	if assert.Nil(t, err) && assert.NotNil(t, ast) {
